@@ -1,0 +1,157 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Courier New', monospace;
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: white;
+  background-color: #000;
+}
+
+.app {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Фоновое видео */
+.video-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.video-background video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(0, 0);
+  transition: transform 0.1s ease-out;
+}
+
+/* Контейнер контента */
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+/* Хедер на всю ширину */
+.header-full-width {
+  width: 100%;
+  padding: 0 20px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px 0;
+  position: relative;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.logo {
+  font-size: 1.8rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: white;
+  opacity: 0.9;
+  position: relative;
+  margin-left: 0;
+}
+
+/* Полоска с кнопками на всю ширину с отступами */
+.nav-container {
+  display: flex;
+  gap: 15px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  width: 100%;
+  padding: 8px 20px;
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+  margin: 0 auto;
+}
+
+.nav-links a {
+  padding: 5px 10px;
+  background: transparent;
+  color: white;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  font-size: 0.8rem;
+}
+
+.nav-links a:hover {
+  color: #e38c40;
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.top-right-nav {
+  display: flex;
+  gap: 20px;
+  font-size: 0.9rem;
+  color: white;
+  align-items: center;
+  margin-top: 3px;
+}
+
+.top-right-nav a {
+  text-decoration: none;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.top-right-nav a:hover {
+  color: #e38c40;
+}
+
+.top-right-nav span {
+  color: white;
+  opacity: 0.7;
+}
+
+/* Описание — выровнено с логотипом */
+.description {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  max-width: 500px;
+  color: white;
+  opacity: 0.9;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.7);
+  margin-top: auto;
+  align-self: flex-start;
+  margin-left: 0;
+  transform: translateY(-40px);
+}
+
+.description h3 {
+  margin-bottom: 10px;
+  font-weight: normal;
+  font-style: italic;
+}
