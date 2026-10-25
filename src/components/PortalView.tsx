@@ -35,67 +35,90 @@ interface PortalViewProps {
   onSelectRealm: (realm: RealmType) => void;
 }
 
-// Memory-efficient slide layer: only holds CURRENT and (during 1s transition) PREVIOUS image in VRAM
+// Memory-efficient two-slot slide layer:
+// Uses two persistent DOM slots with preloaded upcoming artwork.
+// Eliminates React unmount/remount tearing, ensuring buttery-smooth 1000ms native CSS crossfades.
 const PortalSlideLayer: React.FC<{
   images: string[];
+  startIndex?: number;
   intervalMs?: number;
   hovered: boolean;
   alt: string;
-}> = ({ images, intervalMs = 3000, hovered, alt }) => {
-  const [currentIdx, setCurrentIdx] = useState(() => Math.floor(Math.random() * images.length));
-  const [prevIdx, setPrevIdx] = useState<number | null>(null);
+}> = ({ images, startIndex = 0, intervalMs = 3000, hovered, alt }) => {
+  // Preload all web-optimized versions once so crossfades never stutter or flash
+  useEffect(() => {
+    images.forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [images]);
+
+  const safeStart = startIndex >= 0 && startIndex < images.length ? startIndex : 0;
+  const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
+  const [srcA, setSrcA] = useState(images[safeStart]);
+  const [srcB, setSrcB] = useState(images[(safeStart + 1) % images.length]);
+
+  const nextIdxRef = React.useRef((safeStart + 1) % images.length);
+  const timeoutRef = React.useRef<number | null>(null);
 
   useEffect(() => {
     if (images.length <= 1) return;
 
     const timer = setInterval(() => {
-      setCurrentIdx(current => {
-        setPrevIdx(current);
-        return (current + 1) % images.length;
+      setActiveSlot(prevSlot => {
+        if (prevSlot === 'A') {
+          // Slot B is preloaded and ready; dissolve into B
+          timeoutRef.current = window.setTimeout(() => {
+            const nextIdx = (nextIdxRef.current + 1) % images.length;
+            nextIdxRef.current = nextIdx;
+            setSrcA(images[nextIdx]);
+          }, 1100);
+          return 'B';
+        } else {
+          // Slot A is preloaded and ready; dissolve into A
+          timeoutRef.current = window.setTimeout(() => {
+            const nextIdx = (nextIdxRef.current + 1) % images.length;
+            nextIdxRef.current = nextIdx;
+            setSrcB(images[nextIdx]);
+          }, 1100);
+          return 'A';
+        }
       });
     }, intervalMs);
 
-    return () => clearInterval(timer);
-  }, [images.length, intervalMs]);
-
-  // Clean up previous image texture from GPU after crossfade finishes (1000ms)
-  useEffect(() => {
-    if (prevIdx !== null) {
-      const cleanTimer = setTimeout(() => {
-        setPrevIdx(null);
-      }, 1050);
-      return () => clearTimeout(cleanTimer);
-    }
-  }, [prevIdx, currentIdx]);
+    return () => {
+      clearInterval(timer);
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+    };
+  }, [images, intervalMs]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {/* 1. Previous image fading out over 1000ms */}
-      {prevIdx !== null && (
-        <img
-          key={`prev-${images[prevIdx]}`}
-          src={images[prevIdx]}
-          alt={alt}
-          className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ease-in-out opacity-0 ${
-            hovered
-              ? 'scale-105 filter grayscale-0 brightness-85'
-              : 'scale-100 filter grayscale-[80%] brightness-40'
-          }`}
-          style={{ willChange: 'opacity' }}
-        />
-      )}
-
-      {/* 2. Current active image smoothly fading in */}
+    <div
+      className={`absolute inset-0 pointer-events-none overflow-hidden transition-all duration-700 ease-out ${
+        hovered
+          ? 'scale-105 filter grayscale-0 brightness-90 opacity-100'
+          : 'scale-100 filter grayscale-[80%] brightness-45 opacity-70'
+      }`}
+      style={{ willChange: 'transform, filter, opacity' }}
+    >
+      {/* Slot A: Persistent DOM node */}
       <img
-        key={`curr-${images[currentIdx]}`}
-        src={images[currentIdx]}
+        src={srcA}
         alt={alt}
-        className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1000 ease-in-out ${
-          hovered
-            ? 'opacity-100 scale-105 filter grayscale-0 brightness-85 z-10'
-            : 'opacity-60 scale-100 filter grayscale-[80%] brightness-40 z-10'
+        className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ease-in-out ${
+          activeSlot === 'A' ? 'opacity-100 z-10' : 'opacity-0 z-0'
         }`}
-        style={{ willChange: 'opacity, transform, filter' }}
+        style={{ willChange: 'opacity' }}
+      />
+
+      {/* Slot B: Persistent DOM node */}
+      <img
+        src={srcB}
+        alt={alt}
+        className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ease-in-out ${
+          activeSlot === 'B' ? 'opacity-100 z-10' : 'opacity-0 z-0'
+        }`}
+        style={{ willChange: 'opacity' }}
       />
     </div>
   );
@@ -105,6 +128,12 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
   const { lang } = useLanguage();
   const t = TRANSLATIONS.portal;
   const [hovered, setHovered] = useState<RealmType | null>(null);
+
+  // Pick a random starting artwork for Gamedev on initial portal load
+  const randomGamedevStart = React.useMemo(
+    () => Math.floor(Math.random() * GAMEDEV_PORTAL_ARTWORKS.length),
+    []
+  );
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#050507] flex flex-col md:flex-row select-none">
@@ -144,6 +173,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
         {/* Memory-efficient crossfade layer */}
         <PortalSlideLayer
           images={GAMEDEV_PORTAL_ARTWORKS}
+          startIndex={randomGamedevStart}
           intervalMs={3000}
           hovered={hovered === 'gamedev'}
           alt="Gamedev & CG"
