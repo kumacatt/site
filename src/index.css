@@ -4,7 +4,9 @@
 
 @font-face {
   font-family: 'Gropled-Bold';
-  src: url('/Gropled-Bold.otf') format('opentype');
+  src: url('/site/Gropled-Bold.otf') format('opentype'),
+       url('./Gropled-Bold.otf') format('opentype'),
+       url('/Gropled-Bold.otf') format('opentype');
   font-weight: bold;
   font-style: normal;
   font-display: swap;

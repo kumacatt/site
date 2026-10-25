@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Send, Copy, Check, Mail } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
+import { getAssetUrl } from '../utils/asset';
 
 export const ContactSection: React.FC = () => {
   const { lang } = useLanguage();
@@ -61,7 +62,7 @@ export const ContactSection: React.FC = () => {
       url: 'https://www.artstation.com/kumacat',
       color: '#13AFF0',
       icon: (
-        <img src="/artstation.webp" alt="ArtStation" className="w-5 h-5 object-contain" />
+        <img src={getAssetUrl('/artstation.webp')} alt="ArtStation" className="w-5 h-5 object-contain" />
       )
     }
   ];

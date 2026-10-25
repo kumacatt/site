@@ -4,6 +4,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
+import { getAssetUrl } from '../utils/asset';
 
 // Lightweight, web-optimized versions (1920px max dimension, 150-500KB)
 // Decodes in 2-3ms instead of choking GPU memory with 77-megapixel raw print files!
@@ -20,7 +21,7 @@ const GAMEDEV_PORTAL_ARTWORKS = [
   '/1_nitted_P.png',
   '/1_gamepromo_cover.png',
   '/1_MORPHINBeta_web.jpg'
-];
+].map(getAssetUrl);
 
 const DESIGN_PORTAL_ARTWORKS = [
   '/2_kashtan_web.jpg',
@@ -29,7 +30,7 @@ const DESIGN_PORTAL_ARTWORKS = [
   '/2_env_web.jpg',
   '/2_sity_env.png',
   '/2_blender-work_web.jpg'
-];
+].map(getAssetUrl);
 
 interface PortalViewProps {
   onSelectRealm: (realm: RealmType) => void;

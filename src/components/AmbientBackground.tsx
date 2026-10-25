@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { RealmType } from '../data/projects';
+import { getAssetUrl } from '../utils/asset';
 
 interface AmbientBackgroundProps {
   currentRealm?: RealmType | null;
@@ -50,7 +51,7 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         }`}
         style={{ willChange: 'opacity, filter' }}
       >
-        <source src="/bg-video.mp4" type="video/mp4" />
+        <source src={getAssetUrl('/bg-video.mp4')} type="video/mp4" />
       </video>
 
       {/* 2. Design Realm Video (From project "Поляна") */}
@@ -66,7 +67,7 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         }`}
         style={{ willChange: 'opacity, filter' }}
       >
-        <source src="/2_Polyana_F.mp4" type="video/mp4" />
+        <source src={getAssetUrl('/2_Polyana_F.mp4')} type="video/mp4" />
       </video>
 
       {/* Dreamlike Ambient Color Orbs matching the active realm */}

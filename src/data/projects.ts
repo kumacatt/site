@@ -1,3 +1,5 @@
+import { getAssetUrl } from '../utils/asset';
+
 export type RealmType = 'gamedev' | 'design';
 
 export type CardSpan = 'vertical' | 'horizontal' | 'wide' | 'square';
@@ -49,7 +51,7 @@ export interface Project {
   article?: ProjectArticle;
 }
 
-export const PROJECTS: Project[] = [
+const RAW_PROJECTS: Project[] = [
   // ================= GAMEDEV & CG (1_...) =================
   {
     id: 'fragile',
@@ -491,3 +493,20 @@ export const PROJECTS: Project[] = [
     }
   }
 ];
+
+export const PROJECTS: Project[] = RAW_PROJECTS.map(p => ({
+  ...p,
+  cover: getAssetUrl(p.cover),
+  fullImage: p.fullImage ? getAssetUrl(p.fullImage) : undefined,
+  videoUrl: p.videoUrl ? getAssetUrl(p.videoUrl) : undefined,
+  additionalImages: p.additionalImages ? p.additionalImages.map(img => getAssetUrl(img)) : undefined,
+  article: p.article ? {
+    ...p.article,
+    gallery: p.article.gallery ? p.article.gallery.map(g => ({ ...g, url: getAssetUrl(g.url) })) : undefined,
+    beforeAfter: p.article.beforeAfter ? {
+      ...p.article.beforeAfter,
+      beforeImage: getAssetUrl(p.article.beforeAfter.beforeImage),
+      afterImage: getAssetUrl(p.article.beforeAfter.afterImage),
+    } : undefined
+  } : undefined,
+}));

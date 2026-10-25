@@ -4,6 +4,7 @@ import { SOFTWARE_MAP } from '../data/software';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
+import { getAssetUrl } from '../utils/asset';
 import {
   X,
   Share2,
@@ -99,7 +100,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
                 title="ArtStation"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#13AFF0]/15 hover:bg-[#13AFF0]/25 border border-[#13AFF0]/30 text-xs font-mono text-[#13AFF0] hover:text-white transition-all shadow-md"
               >
-                <img src="/artstation.webp" alt="ArtStation" className="w-3.5 h-3.5 object-contain" />
+                <img src={getAssetUrl('/artstation.webp')} alt="ArtStation" className="w-3.5 h-3.5 object-contain" />
                 <span>ArtStation →</span>
               </a>
             )}

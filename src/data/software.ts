@@ -1,3 +1,5 @@
+import { getAssetUrl } from '../utils/asset';
+
 export interface SoftwareItem {
   id: string;
   name: string;
@@ -8,7 +10,7 @@ export interface SoftwareItem {
   tasks: string[];
 }
 
-export const SOFTWARE_MAP: Record<string, SoftwareItem> = {
+const RAW_SOFTWARE_MAP: Record<string, SoftwareItem> = {
   blender: {
     id: 'blender',
     name: 'Blender',
@@ -109,3 +111,10 @@ export const SOFTWARE_MAP: Record<string, SoftwareItem> = {
     tasks: ['Game UI / HUD Systems', 'Design Systems & Tokens', 'Interactive Prototyping', 'Web & Landing UX/UI']
   }
 };
+
+export const SOFTWARE_MAP: Record<string, SoftwareItem> = Object.fromEntries(
+  Object.entries(RAW_SOFTWARE_MAP).map(([key, sw]) => [
+    key,
+    { ...sw, icon: getAssetUrl(sw.icon) }
+  ])
+);
