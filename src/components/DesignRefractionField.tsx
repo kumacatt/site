@@ -235,6 +235,7 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
 
     let lastSimX = -100;
     let lastSimY = -100;
+    let lastSimTime = 0;
     let isMouseActive = false;
 
     // Semi-Lagrangian Advection
@@ -328,6 +329,10 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
       const simX = (e.clientX / window.innerWidth) * simW;
       const simY = (e.clientY / window.innerHeight) * simH;
 
+      const now = performance.now();
+      const dt = lastSimTime > 0 ? Math.max(1, now - lastSimTime) : 16.67;
+      lastSimTime = now;
+
       if (!isMouseActive || lastSimX < 0) {
         lastSimX = simX;
         lastSimY = simY;
@@ -340,13 +345,22 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
       const dist = Math.hypot(dx, dy);
 
       if (dist > 0.08) {
-        const steps = Math.min(14, Math.max(1, Math.ceil(dist / 1.4)));
+        // Speed normalized to ~60fps frame displacement in grid cells
+        const vNorm = (dist / dt) * 16.67;
+
+        // Dynamic speed-dependent wave radius: faster mouse = broader splash!
+        // Slow movement: delicate, fine trail (0.35x base).
+        // Fast movement: wide, dramatic wave (up to 2.2x base).
+        const baseRadius = currentSettings.waveRadius || 10;
+        const speedFactor = 0.35 + 1.85 * (1 - Math.exp(-vNorm / 3.0));
+        const radius = baseRadius * speedFactor;
+
+        // Dynamic force: energetic flicks impart much stronger velocity impulse
+        const force = Math.min(5.5, 0.5 + vNorm * 0.45);
+
+        const steps = Math.min(22, Math.max(1, Math.ceil(dist / Math.max(1.2, radius * 0.4))));
         const stepDx = dx / steps;
         const stepDy = dy / steps;
-
-        const baseRadius = currentSettings.waveRadius;
-        const radius = Math.min(baseRadius * 1.5, baseRadius * 0.75 + dist * 0.16);
-        const force = Math.min(4.5, 0.6 + dist * 0.35);
 
         for (let s = 0; s <= steps; s++) {
           const px = lastSimX + stepDx * s;
@@ -384,6 +398,7 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
       isMouseActive = false;
       lastSimX = -100;
       lastSimY = -100;
+      lastSimTime = 0;
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });

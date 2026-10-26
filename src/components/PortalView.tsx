@@ -564,6 +564,7 @@ const PortalRefractionCanvas: React.FC<{
 
     let lastSimX = -100;
     let lastSimY = -100;
+    let lastSimTime = 0;
     let isMouseActive = false;
 
     const advect = (
@@ -661,6 +662,10 @@ const PortalRefractionCanvas: React.FC<{
       const simX = normX * simW;
       const simY = normY * simH;
 
+      const now = performance.now();
+      const dt = lastSimTime > 0 ? Math.max(1, now - lastSimTime) : 16.67;
+      lastSimTime = now;
+
       if (!isMouseActive || lastSimX < 0) {
         lastSimX = simX;
         lastSimY = simY;
@@ -673,14 +678,21 @@ const PortalRefractionCanvas: React.FC<{
       const dist = Math.hypot(dx, dy);
 
       if (dist > 0.08) {
+        // Speed normalized to ~60fps frame displacement
+        const vNorm = (dist / dt) * 16.67;
+
+        // Dynamic speed-dependent wave radius: faster mouse = broader splash!
+        const baseRadius = currentSettings.waveRadius || 10;
+        const speedFactor = 0.35 + 1.85 * (1 - Math.exp(-vNorm / 3.0));
+        const radius = baseRadius * speedFactor;
+
+        // Dynamic force: energetic flicks impart much stronger velocity impulse
+        const force = Math.min(5.5, 0.6 + vNorm * 0.45);
+
         // Multi-step interpolation ensures smooth, continuous fluid trails even during fast flicks
-        const steps = Math.min(14, Math.max(1, Math.ceil(dist / 1.4)));
+        const steps = Math.min(22, Math.max(1, Math.ceil(dist / Math.max(1.2, radius * 0.4))));
         const stepDx = dx / steps;
         const stepDy = dy / steps;
-
-        const baseRadius = currentSettings.waveRadius || 10;
-        const radius = Math.min(baseRadius * 1.6, baseRadius * 0.8 + dist * 0.18);
-        const force = Math.min(5.0, 0.8 + dist * 0.4);
 
         for (let s = 0; s <= steps; s++) {
           const px = lastSimX + stepDx * s;
@@ -717,6 +729,7 @@ const PortalRefractionCanvas: React.FC<{
       isMouseActive = false;
       lastSimX = -100;
       lastSimY = -100;
+      lastSimTime = 0;
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });

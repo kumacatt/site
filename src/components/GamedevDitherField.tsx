@@ -54,6 +54,7 @@ export const GamedevDitherField: React.FC = () => {
     // Mouse tracking in simulation space
     let lastSimX = -100;
     let lastSimY = -100;
+    let lastSimTime = 0;
     let isMouseActive = false;
 
     const resize = () => {
@@ -174,6 +175,10 @@ export const GamedevDitherField: React.FC = () => {
       const simX = (e.clientX / window.innerWidth) * simW;
       const simY = (e.clientY / window.innerHeight) * simH;
 
+      const now = performance.now();
+      const dt = lastSimTime > 0 ? Math.max(1, now - lastSimTime) : 16.67;
+      lastSimTime = now;
+
       if (!isMouseActive || lastSimX < 0) {
         lastSimX = simX;
         lastSimY = simY;
@@ -186,13 +191,20 @@ export const GamedevDitherField: React.FC = () => {
       const dist = Math.hypot(dx, dy);
 
       if (dist > 0.08) {
-        const steps = Math.min(14, Math.max(1, Math.ceil(dist / 1.4)));
+        // Speed normalized to ~60fps frame displacement
+        const vNorm = (dist / dt) * 16.67;
+
+        // Dynamic speed-dependent wave radius: faster mouse = broader splash!
+        const baseRadius = currentSettings.fluidRadius || 3.5;
+        const speedFactor = 0.35 + 1.85 * (1 - Math.exp(-vNorm / 3.0));
+        const radius = baseRadius * speedFactor;
+
+        // Dynamic force: energetic flicks impart much stronger velocity impulse
+        const force = Math.min(4.5, 0.4 + vNorm * 0.35);
+
+        const steps = Math.min(22, Math.max(1, Math.ceil(dist / Math.max(1.2, radius * 0.4))));
         const stepDx = dx / steps;
         const stepDy = dy / steps;
-
-        const baseRadius = currentSettings.fluidRadius;
-        const radius = Math.min(baseRadius * 1.5, baseRadius * 0.75 + dist * 0.16);
-        const force = Math.min(3.5, 0.4 + dist * 0.25);
 
         for (let s = 0; s <= steps; s++) {
           const px = lastSimX + stepDx * s;
@@ -230,6 +242,7 @@ export const GamedevDitherField: React.FC = () => {
       isMouseActive = false;
       lastSimX = -100;
       lastSimY = -100;
+      lastSimTime = 0;
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
