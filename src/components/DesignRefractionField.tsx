@@ -23,6 +23,9 @@ uniform float u_chromatic;
 uniform float u_specular;
 uniform vec2 u_resolution;
 uniform vec2 u_videoSize;
+uniform vec3 u_firefly0;
+uniform vec3 u_firefly1;
+uniform vec3 u_firefly2;
 
 void main() {
   // 1. Aspect-ratio preserving object-cover UVs for video
@@ -82,7 +85,41 @@ void main() {
   float slope = speed * 1.6 + density * 0.45;
   float spec = pow(clamp(slope * 1.5, 0.0, 1.0), 1.4) * (u_specular * 0.75);
 
-  gl_FragColor = vec4(clamp(vec3(r, g, b) + vec3(spec, spec, spec * 1.1), 0.0, 1.0), 1.0);
+  vec3 col = clamp(vec3(r, g, b) + vec3(spec, spec, spec * 1.1), 0.0, 1.0);
+
+  // 6. Luminous celestial fireflies in mobile mode
+  vec2 screenUv = vec2(vUv.x, 1.0 - vUv.y);
+  if (u_firefly0.z > 0.01) {
+    vec2 d0 = (screenUv - u_firefly0.xy);
+    d0.x *= screenAspect;
+    float dist0 = length(d0);
+    if (dist0 < 0.04) {
+      float sp0 = pow(1.0 - dist0 / 0.04, 2.5) * u_firefly0.z;
+      col += vec3(0.95, 0.85, 1.0) * sp0 * 0.70;
+    }
+  }
+
+  if (u_firefly1.z > 0.01) {
+    vec2 d1 = (screenUv - u_firefly1.xy);
+    d1.x *= screenAspect;
+    float dist1 = length(d1);
+    if (dist1 < 0.04) {
+      float sp1 = pow(1.0 - dist1 / 0.04, 2.5) * u_firefly1.z;
+      col += vec3(0.95, 0.85, 1.0) * sp1 * 0.70;
+    }
+  }
+
+  if (u_firefly2.z > 0.01) {
+    vec2 d2 = (screenUv - u_firefly2.xy);
+    d2.x *= screenAspect;
+    float dist2 = length(d2);
+    if (dist2 < 0.04) {
+      float sp2 = pow(1.0 - dist2 / 0.04, 2.5) * u_firefly2.z;
+      col += vec3(0.95, 0.85, 1.0) * sp2 * 0.70;
+    }
+  }
+
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
 `;
 
@@ -184,9 +221,31 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
     const uSpecularLoc = gl.getUniformLocation(program, 'u_specular');
     const uResolutionLoc = gl.getUniformLocation(program, 'u_resolution');
     const uVideoSizeLoc = gl.getUniformLocation(program, 'u_videoSize');
+    const uFirefly0Loc = gl.getUniformLocation(program, 'u_firefly0');
+    const uFirefly1Loc = gl.getUniformLocation(program, 'u_firefly1');
+    const uFirefly2Loc = gl.getUniformLocation(program, 'u_firefly2');
 
     gl.uniform1i(uVideoLoc, 0); // TEXTURE0
     gl.uniform1i(uFluidLoc, 1); // TEXTURE1
+
+    // Mobile mode detection & autonomous firefly particles
+    let isMobile = window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
+
+    interface FireflyAgent {
+      x: number;
+      y: number;
+      prevX: number;
+      prevY: number;
+      phase: number;
+      glow: number;
+    }
+
+    const fireflies: FireflyAgent[] = [
+      { x: 0.5, y: 0.35, prevX: 0.5, prevY: 0.35, phase: 0.0, glow: 1.0 },
+      { x: 0.5, y: 0.65, prevX: 0.5, prevY: 0.65, phase: 2.1, glow: 1.0 },
+      { x: 0.5, y: 0.50, prevX: 0.5, prevY: 0.50, phase: 4.3, glow: 1.0 },
+    ];
+    let fireflyTime = 0;
 
     // Video Texture (Texture 0)
     const videoTexture = gl.createTexture();
@@ -218,6 +277,7 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
 
     // Canvas Resize (Native DPI for razor-sharp 1080p/4K rendering, clamped to 1.5 max for GPU efficiency)
     const resize = () => {
+      isMobile = window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = Math.round(window.innerWidth * dpr);
       const h = Math.round(window.innerHeight * dpr);
@@ -351,11 +411,11 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
       }
     };
 
-    // Mouse Movement (Isotropic physical screen coordinates)
-    const handleMouseMove = (e: MouseEvent) => {
+    // Unified Pointer Movement (Mouse and Touch)
+    const handlePointerMove = (clientX: number, clientY: number) => {
       if (activeRef.current === false) return;
-      const simX = (e.clientX / window.innerWidth) * simW;
-      const simY = (e.clientY / window.innerHeight) * simH;
+      const simX = (clientX / window.innerWidth) * simW;
+      const simY = (clientY / window.innerHeight) * simH;
 
       const now = performance.now();
       const dt = lastSimTime > 0 ? Math.max(1, now - lastSimTime) : 16.67;
@@ -376,9 +436,7 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
         // Speed normalized to ~60fps frame displacement in grid cells
         const vNorm = (dist / dt) * 16.67;
 
-        // Dynamic speed-dependent wave radius: faster mouse = broader splash!
-        // Slow movement: delicate, fine trail (0.35x base).
-        // Fast movement: wide, dramatic wave (up to 2.2x base).
+        // Dynamic speed-dependent wave radius: faster movement = broader splash!
         const baseRadius = currentSettings.waveRadius || 10;
         const speedFactor = 0.35 + 1.85 * (1 - Math.exp(-vNorm / 3.0));
         const radius = baseRadius * speedFactor;
@@ -420,6 +478,27 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
 
       lastSimX = simX;
       lastSimY = simY;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handlePointerMove(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        isMouseActive = false;
+        const t = e.touches[0];
+        handlePointerMove(t.clientX, t.clientY);
+        const simX = (t.clientX / window.innerWidth) * simW;
+        const simY = (t.clientY / window.innerHeight) * simH;
+        triggerSplash(simX, simY, 1.2);
+      }
     };
 
     const handleMouseLeave = () => {
@@ -523,6 +602,9 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleMouseLeave, { passive: true });
     window.addEventListener('mousedown', handleMouseDown, { passive: true });
     window.addEventListener('kum-realm-transition', handleTransition);
     document.addEventListener('mouseleave', handleMouseLeave);
@@ -538,6 +620,61 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
       }
 
       const dt = 0.016;
+
+      // Advance and inject autonomous mobile fireflies
+      if (isMobile) {
+        fireflyTime += 0.016;
+        for (let i = 0; i < fireflies.length; i++) {
+          const f = fireflies[i];
+          if (i === 0) {
+            f.x = 0.50 + 0.35 * Math.sin(fireflyTime * 0.45) + 0.10 * Math.cos(fireflyTime * 1.12);
+            f.y = 0.35 + 0.22 * Math.cos(fireflyTime * 0.38) + 0.08 * Math.sin(fireflyTime * 0.95);
+          } else if (i === 1) {
+            f.x = 0.50 + 0.36 * Math.cos(fireflyTime * 0.32 + 1.8) + 0.09 * Math.sin(fireflyTime * 0.85);
+            f.y = 0.65 + 0.24 * Math.sin(fireflyTime * 0.48 + 0.5) + 0.08 * Math.cos(fireflyTime * 1.05);
+          } else {
+            f.x = 0.50 + 0.33 * Math.sin(fireflyTime * 0.58 + 3.2) + 0.12 * Math.cos(fireflyTime * 0.67);
+            f.y = 0.50 + 0.35 * Math.cos(fireflyTime * 0.40 + 2.1) + 0.09 * Math.sin(fireflyTime * 0.88);
+          }
+          f.glow = 0.70 + 0.30 * Math.sin(fireflyTime * 2.5 + f.phase);
+
+          const simX = f.x * simW;
+          const simY = f.y * simH;
+          const prevSimX = f.prevX * simW;
+          const prevSimY = f.prevY * simH;
+          const dx = simX - prevSimX;
+          const dy = simY - prevSimY;
+          const dist = Math.hypot(dx, dy);
+
+          f.prevX = f.x;
+          f.prevY = f.y;
+
+          if (dist > 0.0001) {
+            const radius = (currentSettings.waveRadius || 10) * 0.75;
+            const force = 4.2;
+            const minX = Math.max(1, Math.floor(simX - radius));
+            const maxX = Math.min(simW - 2, Math.ceil(simX + radius));
+            const minY = Math.max(1, Math.floor(simY - radius));
+            const maxY = Math.min(simH - 2, Math.ceil(simY + radius));
+
+            for (let iy = minY; iy <= maxY; iy++) {
+              const r = iy * simW;
+              const dyVal = iy - simY;
+              for (let ix = minX; ix <= maxX; ix++) {
+                const dxVal = ix - simX;
+                const dSq = dxVal * dxVal + dyVal * dyVal;
+                if (dSq < radius * radius) {
+                  const falloff = 1 - Math.sqrt(dSq) / radius;
+                  const idx = r + ix;
+                  dens[idx] = Math.min(2.8, dens[idx] + falloff * 0.85);
+                  u[idx] += dx * force * falloff * 0.32;
+                  v[idx] += dy * force * falloff * 0.32;
+                }
+              }
+            }
+          }
+        }
+      }
 
       // 1. Advance Navier-Stokes Simulation
       u_prev.set(u);
@@ -588,6 +725,17 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
       gl.uniform1f(uSpecularLoc, currentSettings.specular);
       gl.uniform2f(uResolutionLoc, canvas.width, canvas.height);
 
+      // Firefly uniforms for mobile
+      if (isMobile) {
+        gl.uniform3f(uFirefly0Loc, fireflies[0].x, fireflies[0].y, fireflies[0].glow);
+        gl.uniform3f(uFirefly1Loc, fireflies[1].x, fireflies[1].y, fireflies[1].glow);
+        gl.uniform3f(uFirefly2Loc, fireflies[2].x, fireflies[2].y, fireflies[2].glow);
+      } else {
+        gl.uniform3f(uFirefly0Loc, 0, 0, 0);
+        gl.uniform3f(uFirefly1Loc, 0, 0, 0);
+        gl.uniform3f(uFirefly2Loc, 0, 0, 0);
+      }
+
       // 5. Draw Hardware-Accelerated Quad
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -618,6 +766,9 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleMouseLeave);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('kum-realm-transition', handleTransition);
       document.removeEventListener('mouseleave', handleMouseLeave);

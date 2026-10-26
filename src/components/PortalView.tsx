@@ -187,11 +187,27 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
       mouseRef.current.active = false;
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          mouseRef.current.normX = (e.touches[0].clientX - rect.left) / rect.width;
+          mouseRef.current.normY = (e.touches[0].clientY - rect.top) / rect.height;
+          mouseRef.current.active = true;
+        }
+      }
+    };
+
     const parent = canvas.parentElement;
     if (parent) {
       parent.addEventListener('mousemove', handleMouseMove);
       parent.addEventListener('mouseleave', handleMouseLeave);
+      parent.addEventListener('touchmove', handleTouchMove, { passive: true });
+      parent.addEventListener('touchstart', handleTouchMove, { passive: true });
+      parent.addEventListener('touchend', handleMouseLeave, { passive: true });
     }
+
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024));
 
     const render = () => {
       if (document.hidden) {
@@ -201,7 +217,7 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
 
       syncCanvasSize();
 
-      targetGlow = active ? 1.0 : 0.0;
+      targetGlow = active ? 1.0 : (isMobile ? 0.35 : 0.0);
       currentGlow += (targetGlow - currentGlow) * 0.08;
       ripplePhase += 0.035;
 
@@ -296,6 +312,9 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
       if (parent) {
         parent.removeEventListener('mousemove', handleMouseMove);
         parent.removeEventListener('mouseleave', handleMouseLeave);
+        parent.removeEventListener('touchmove', handleTouchMove);
+        parent.removeEventListener('touchstart', handleTouchMove);
+        parent.removeEventListener('touchend', handleMouseLeave);
       }
     };
   }, [active]);
@@ -720,13 +739,13 @@ const PortalRefractionCanvas: React.FC<{
       }
     };
 
-    // Global window mouse listener ensures 100% reliable tracking even over nested DOM overlays
-    const handleMouseMove = (e: MouseEvent) => {
+    // Unified Pointer Movement (Mouse and Touch)
+    const handlePointerMove = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
 
-      const normX = (e.clientX - rect.left) / rect.width;
-      const normY = (e.clientY - rect.top) / rect.height;
+      const normX = (clientX - rect.left) / rect.width;
+      const normY = (clientY - rect.top) / rect.height;
 
       // Only inject force when cursor is within the Design half card bounds
       if (normX < 0 || normX > 1 || normY < 0 || normY > 1) {
@@ -809,6 +828,10 @@ const PortalRefractionCanvas: React.FC<{
       lastSimY = simY;
     };
 
+    const handleMouseMove = (e: MouseEvent) => {
+      handlePointerMove(e.clientX, e.clientY);
+    };
+
     const handleMouseLeave = () => {
       isMouseActive = false;
       isMouseInside = false;
@@ -859,7 +882,33 @@ const PortalRefractionCanvas: React.FC<{
       triggerSplash(simX, simY, 1.2);
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        const t = e.touches[0];
+        handlePointerMove(t.clientX, t.clientY);
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const normX = (t.clientX - rect.left) / rect.width;
+          const normY = (t.clientY - rect.top) / rect.height;
+          if (normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1) {
+            triggerSplash(normX * simW, normY * simH, 1.2);
+          }
+        }
+      }
+    };
+
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024));
+
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleMouseLeave, { passive: true });
     window.addEventListener('mousedown', handleMouseDown, { passive: true });
     window.addEventListener('mouseleave', handleMouseLeave);
 
@@ -969,7 +1018,7 @@ const PortalRefractionCanvas: React.FC<{
       gl.uniform1f(uSpecularLoc, currentSettings.specular * 0.70);
 
       // Angled Dither Stripes with Fluid Refraction Uniforms
-      targetGlow = hoveredRef.current ? 1.0 : 0.0;
+      targetGlow = (hoveredRef.current || (isMobile && !isMouseInside)) ? (hoveredRef.current ? 1.0 : 0.45) : 0.0;
       currentGlow += (targetGlow - currentGlow) * 0.08;
       ripplePhase += 0.035;
 
@@ -1005,6 +1054,9 @@ const PortalRefractionCanvas: React.FC<{
       clearInterval(slideTimer);
       window.removeEventListener('kum-refraction-settings', handleSettingsUpdate);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleMouseLeave);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseleave', handleMouseLeave);
     };

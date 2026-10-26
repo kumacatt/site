@@ -82,7 +82,27 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
     let lastSimTime = 0;
     let isMouseActive = false;
 
+    // Mobile mode detection & autonomous firefly particles
+    let isMobile = window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
+
+    interface FireflyAgent {
+      x: number;
+      y: number;
+      prevX: number;
+      prevY: number;
+      phase: number;
+      glow: number;
+    }
+
+    const fireflies: FireflyAgent[] = [
+      { x: 0.5, y: 0.35, prevX: 0.5, prevY: 0.35, phase: 0.0, glow: 1.0 },
+      { x: 0.5, y: 0.65, prevX: 0.5, prevY: 0.65, phase: 2.1, glow: 1.0 },
+      { x: 0.5, y: 0.50, prevX: 0.5, prevY: 0.50, phase: 4.3, glow: 1.0 },
+    ];
+    let fireflyTime = 0;
+
     const resize = () => {
+      isMobile = window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
       const aspect = window.innerWidth / Math.max(1, window.innerHeight);
       const newSimW = Math.max(32, Math.min(256, Math.round(simH * aspect)));
       const newSimSize = newSimW * simH;
@@ -195,11 +215,11 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
       }
     };
 
-    // Mouse Injection (Isotropic in physical screen space)
-    const handleMouseMove = (e: MouseEvent) => {
+    // Unified Pointer Injection (Mouse and Touch)
+    const handlePointerMove = (clientX: number, clientY: number) => {
       if (activeRef.current === false) return;
-      const simX = (e.clientX / window.innerWidth) * simW;
-      const simY = (e.clientY / window.innerHeight) * simH;
+      const simX = (clientX / window.innerWidth) * simW;
+      const simY = (clientY / window.innerHeight) * simH;
 
       const now = performance.now();
       const dt = lastSimTime > 0 ? Math.max(1, now - lastSimTime) : 16.67;
@@ -220,7 +240,7 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
         // Speed normalized to ~60fps frame displacement
         const vNorm = (dist / dt) * 16.67;
 
-        // Dynamic speed-dependent wave radius: faster mouse = broader splash!
+        // Dynamic speed-dependent wave radius: faster movement = broader splash!
         const baseRadius = currentSettings.fluidRadius || 3.5;
         const speedFactor = 0.35 + 1.85 * (1 - Math.exp(-vNorm / 3.0));
         const radius = baseRadius * speedFactor;
@@ -246,7 +266,6 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
             const dyVal = iy - py;
             for (let ix = minX; ix <= maxX; ix++) {
               const dxVal = ix - px;
-              // True Euclidean circular distance in square grid cells
               const dSq = dxVal * dxVal + dyVal * dyVal;
               if (dSq < radius * radius) {
                 const falloff = 1 - Math.sqrt(dSq) / radius;
@@ -262,6 +281,27 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
 
       lastSimX = simX;
       lastSimY = simY;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handlePointerMove(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        isMouseActive = false;
+        const t = e.touches[0];
+        handlePointerMove(t.clientX, t.clientY);
+        const simX = (t.clientX / window.innerWidth) * simW;
+        const simY = (t.clientY / window.innerHeight) * simH;
+        triggerSplash(simX, simY, 1.2);
+      }
     };
 
     const handleMouseLeave = () => {
@@ -365,6 +405,9 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleMouseLeave, { passive: true });
     window.addEventListener('mousedown', handleMouseDown, { passive: true });
     window.addEventListener('kum-realm-transition', handleTransition);
     document.addEventListener('mouseleave', handleMouseLeave);
@@ -388,6 +431,61 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
       }
 
       const dt = 0.016;
+
+      // Advance and inject autonomous mobile fireflies
+      if (isMobile) {
+        fireflyTime += 0.016;
+        for (let i = 0; i < fireflies.length; i++) {
+          const f = fireflies[i];
+          if (i === 0) {
+            f.x = 0.50 + 0.35 * Math.sin(fireflyTime * 0.45) + 0.10 * Math.cos(fireflyTime * 1.12);
+            f.y = 0.35 + 0.22 * Math.cos(fireflyTime * 0.38) + 0.08 * Math.sin(fireflyTime * 0.95);
+          } else if (i === 1) {
+            f.x = 0.50 + 0.36 * Math.cos(fireflyTime * 0.32 + 1.8) + 0.09 * Math.sin(fireflyTime * 0.85);
+            f.y = 0.65 + 0.24 * Math.sin(fireflyTime * 0.48 + 0.5) + 0.08 * Math.cos(fireflyTime * 1.05);
+          } else {
+            f.x = 0.50 + 0.33 * Math.sin(fireflyTime * 0.58 + 3.2) + 0.12 * Math.cos(fireflyTime * 0.67);
+            f.y = 0.50 + 0.35 * Math.cos(fireflyTime * 0.40 + 2.1) + 0.09 * Math.sin(fireflyTime * 0.88);
+          }
+          f.glow = 0.70 + 0.30 * Math.sin(fireflyTime * 2.5 + f.phase);
+
+          const simX = f.x * simW;
+          const simY = f.y * simH;
+          const prevSimX = f.prevX * simW;
+          const prevSimY = f.prevY * simH;
+          const dx = simX - prevSimX;
+          const dy = simY - prevSimY;
+          const dist = Math.hypot(dx, dy);
+
+          f.prevX = f.x;
+          f.prevY = f.y;
+
+          if (dist > 0.0001) {
+            const radius = (currentSettings.fluidRadius || 3.5) * 0.95;
+            const force = 3.6;
+            const minX = Math.max(1, Math.floor(simX - radius));
+            const maxX = Math.min(simW - 2, Math.ceil(simX + radius));
+            const minY = Math.max(1, Math.floor(simY - radius));
+            const maxY = Math.min(simH - 2, Math.ceil(simY + radius));
+
+            for (let iy = minY; iy <= maxY; iy++) {
+              const r = iy * simW;
+              const dyVal = iy - simY;
+              for (let ix = minX; ix <= maxX; ix++) {
+                const dxVal = ix - simX;
+                const dSq = dxVal * dxVal + dyVal * dyVal;
+                if (dSq < radius * radius) {
+                  const falloff = 1 - Math.sqrt(dSq) / radius;
+                  const idx = r + ix;
+                  dens[idx] = Math.min(2.8, dens[idx] + falloff * 0.75);
+                  u[idx] += dx * force * falloff * 0.28;
+                  v[idx] += dy * force * falloff * 0.28;
+                }
+              }
+            }
+          }
+        }
+      }
 
       u_prev.set(u);
       v_prev.set(v);
@@ -471,6 +569,30 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
         }
       }
 
+      // Render glowing golden firefly sparks on mobile
+      if (isMobile) {
+        for (const f of fireflies) {
+          const px = Math.round(f.x * (canvasW - 1));
+          const py = Math.round(f.y * (canvasH - 1));
+          const coreAlpha = Math.floor(255 * f.glow);
+          const haloAlpha = Math.floor(180 * f.glow);
+          const coreColor = makeColor(254, 240, 138, coreAlpha);
+          const haloColor = makeColor(245, 158, 11, haloAlpha);
+
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = py + oy;
+            if (cy < 0 || cy >= canvasH) continue;
+            const row = cy * canvasW;
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = px + ox;
+              if (cx < 0 || cx >= canvasW) continue;
+              const isCenter = ox === 0 && oy === 0;
+              buf32[row + cx] = isCenter ? coreColor : haloColor;
+            }
+          }
+        }
+      }
+
       ctx.putImageData(imageData, 0, 0);
       animId = requestAnimationFrame(render);
     };
@@ -499,6 +621,9 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleMouseLeave);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('kum-realm-transition', handleTransition);
       document.removeEventListener('mouseleave', handleMouseLeave);

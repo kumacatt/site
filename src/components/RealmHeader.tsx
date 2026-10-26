@@ -33,13 +33,13 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 px-4 sm:px-8 lg:px-12 py-4 sm:py-5 pointer-events-none transition-all duration-300">
+    <header className="fixed top-0 left-0 right-0 z-40 px-2.5 sm:px-8 lg:px-12 py-3 sm:py-5 pointer-events-none transition-all duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
         {/* Left: Brand / Logo button */}
         <button
           onClick={onOpenPortal}
           title={t.portal[lang]}
-          className="flex items-center gap-2.5 group px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/15 hover:border-amber-400/40 hover:bg-black/75 transition-all shadow-xl flex-shrink-0 active:scale-95"
+          className="flex items-center gap-2 group px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/15 hover:border-amber-400/40 hover:bg-black/75 transition-all shadow-xl flex-shrink-0 active:scale-95"
         >
           <Compass size={18} className="text-amber-400 group-hover:rotate-45 transition-transform duration-300 flex-shrink-0" />
           <span className="hidden sm:inline text-sm font-bold text-white tracking-widest uppercase font-sans">
@@ -48,7 +48,7 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
         </button>
 
         {/* Center: Realm Toggle Pill — Highly visible, prominent & clean */}
-        <div className="flex items-center p-1.5 sm:p-2 rounded-2xl bg-neutral-950/85 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] mx-2 sm:mx-4 flex-shrink-0">
+        <div className="flex items-center p-1 sm:p-2 rounded-2xl bg-neutral-950/85 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] mx-1 sm:mx-4 flex-shrink-0">
           <button
             onClick={(e) => {
               if (currentRealm !== 'gamedev') {
@@ -64,17 +64,17 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               }
               onSelectRealm('gamedev');
             }}
-            className={`flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono uppercase tracking-wider font-bold transition-all duration-300 active:scale-95 ${
+            className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono uppercase tracking-wider font-bold transition-all duration-300 active:scale-95 ${
               currentRealm === 'gamedev'
                 ? 'bg-gradient-to-r from-amber-500/35 via-amber-500/25 to-amber-600/35 text-amber-300 border border-amber-400/60 shadow-[0_0_24px_rgba(245,158,11,0.35)]'
                 : 'text-neutral-400 hover:text-white hover:bg-white/10 border border-transparent'
             }`}
           >
-            <Gamepad2 size={17} className={`flex-shrink-0 ${currentRealm === 'gamedev' ? 'text-amber-400' : 'text-neutral-400'}`} />
+            <Gamepad2 size={16} className={`flex-shrink-0 ${currentRealm === 'gamedev' ? 'text-amber-400' : 'text-neutral-400'}`} />
             <span>{t.gamedev[lang]}</span>
           </button>
 
-          <div className="w-px h-6 bg-white/15 mx-1 sm:mx-1.5 flex-shrink-0" />
+          <div className="w-px h-5 sm:h-6 bg-white/15 mx-0.5 sm:mx-1.5 flex-shrink-0" />
 
           <button
             onClick={(e) => {
@@ -91,13 +91,13 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               }
               onSelectRealm('design');
             }}
-            className={`flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono uppercase tracking-wider font-bold transition-all duration-300 active:scale-95 ${
+            className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono uppercase tracking-wider font-bold transition-all duration-300 active:scale-95 ${
               currentRealm === 'design'
                 ? 'bg-gradient-to-r from-purple-500/35 via-purple-500/25 to-fuchsia-600/35 text-purple-200 border border-purple-400/60 shadow-[0_0_24px_rgba(168,85,247,0.35)]'
                 : 'text-neutral-400 hover:text-white hover:bg-white/10 border border-transparent'
             }`}
           >
-            <Palette size={17} className={`flex-shrink-0 ${currentRealm === 'design' ? 'text-purple-300' : 'text-neutral-400'}`} />
+            <Palette size={16} className={`flex-shrink-0 ${currentRealm === 'design' ? 'text-purple-300' : 'text-neutral-400'}`} />
             <span>{t.design[lang]}</span>
           </button>
         </div>
@@ -106,19 +106,6 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
         <div className="hidden md:flex items-center gap-2.5">
           {/* Language Switcher */}
           <LanguageSwitch />
-
-          <button
-            onClick={handleCopyCurrentLink}
-            title={t.copyTabLink[lang]}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-black/55 backdrop-blur-xl border border-white/15 hover:border-white/35 text-xs sm:text-sm font-mono text-white/80 hover:text-white transition-all shadow-md active:scale-95"
-          >
-            {copied ? (
-              <Check size={15} className="text-emerald-400" />
-            ) : (
-              <Share2 size={15} />
-            )}
-            <span>#{currentRealm}</span>
-          </button>
 
           <button
             onClick={() => onScrollTo('about')}
@@ -144,15 +131,30 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
           </button>
         </div>
 
-        {/* Right Controls on Mobile (`md:hidden`): Language Switch + Hamburger */}
-        <div className="md:hidden flex items-center gap-2">
+        {/* Right Controls on Mobile (`md:hidden`): About, Contacts, Language Switch + Hamburger */}
+        <div className="md:hidden flex items-center gap-1.5 sm:gap-2">
+          <button
+            onClick={() => onScrollTo('about')}
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-xl border border-white/15 hover:border-white/35 text-xs font-mono text-white/90 hover:text-white transition-all shadow-md active:scale-95"
+          >
+            {t.about[lang]}
+          </button>
+
+          <button
+            onClick={() => onScrollTo('contacts')}
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-xl border border-white/25 text-xs font-mono text-white transition-all font-semibold shadow-md active:scale-95"
+          >
+            {t.contacts[lang]}
+          </button>
+
           <LanguageSwitch />
+
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Меню навигации"
-            className="w-10 h-10 rounded-xl bg-black/70 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white/90 hover:text-white transition-colors active:scale-95"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-black/70 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white/90 hover:text-white transition-colors active:scale-95"
           >
-            {mobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
+            {mobileMenuOpen ? <X size={17} /> : <Menu size={17} />}
           </button>
         </div>
       </div>
