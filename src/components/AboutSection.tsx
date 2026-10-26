@@ -12,7 +12,7 @@ export const AboutSection: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         {/* Left Column: Alive, informal, honest text */}
         <div className="lg:col-span-5 space-y-5">
-          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight uppercase font-sans">
+          <h2 className="text-3xl sm:text-5xl font-normal text-white tracking-wide uppercase font-heading">
             {t.title[lang]}
           </h2>
 

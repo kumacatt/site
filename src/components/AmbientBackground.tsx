@@ -54,6 +54,14 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         <source src={getAssetUrl('/bg-video.mp4')} type="video/mp4" />
       </video>
 
+      {/* Atmospheric Dither Screen Overlay for Gamedev Realm */}
+      <div
+        className={`absolute inset-0 pointer-events-none transition-opacity duration-1000 dither-screen-overlay z-[2] ${
+          !isDesign ? 'opacity-40' : 'opacity-0'
+        }`}
+        style={{ mixBlendMode: 'overlay' }}
+      />
+
       {/* 2. Design Realm Video (From project "Поляна") */}
       <video
         ref={designVideoRef}

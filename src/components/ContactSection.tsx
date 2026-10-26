@@ -74,7 +74,7 @@ export const ContactSection: React.FC = () => {
           <span className="text-xs font-mono uppercase tracking-widest text-white/40 block mb-2">
             {t.contacts[lang]}
           </span>
-          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight uppercase font-sans">
+          <h2 className="text-3xl sm:text-5xl font-normal text-white tracking-wide uppercase font-heading">
             {t.title[lang]}
           </h2>
           <p className="mt-3 text-sm sm:text-base font-mono text-white/70 max-w-md mx-auto">

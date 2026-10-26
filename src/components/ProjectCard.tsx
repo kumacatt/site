@@ -4,6 +4,7 @@ import { SOFTWARE_MAP } from '../data/software';
 import { ArrowUpRight, BookOpen } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
+import { getAssetUrl } from '../utils/asset';
 
 interface ProjectCardProps {
   project: Project;
@@ -112,14 +113,36 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, index
         </div>
       )}
 
+      {/* Gamedev Retro Bayer Dither Fade Ramp at bottom of card */}
+      {project.realm === 'gamedev' && (
+        <div
+          className="absolute bottom-0 inset-x-0 h-28 pointer-events-none z-10 opacity-80 group-hover:opacity-0 transition-opacity duration-300"
+          style={{
+            backgroundImage: `url(${getAssetUrl('/dither-gradient.svg')})`,
+            backgroundRepeat: 'repeat-x',
+            backgroundPosition: 'bottom',
+            backgroundSize: '8px 100%',
+            imageRendering: 'pixelated'
+          }}
+        />
+      )}
+
       {/* OVERLAY: Appears strictly on hover */}
       <div
         className={`absolute inset-0 z-20 p-5 sm:p-6 flex flex-col justify-between bg-black/75 backdrop-blur-md transition-all duration-300 ${
           isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
+        {/* Subtle dither screen texture on Gamedev card hover */}
+        {project.realm === 'gamedev' && (
+          <div
+            className="absolute inset-0 pointer-events-none dither-screen-overlay opacity-30 mix-blend-overlay z-0"
+            aria-hidden="true"
+          />
+        )}
+
         {/* Top strip */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between relative z-10">
           <div className="flex items-center gap-1.5 flex-wrap">
             {project.subcategories.slice(0, 2).map(tag => (
               <span
@@ -142,10 +165,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, index
         </div>
 
         {/* Bottom strip */}
-        <div className="space-y-3">
+        <div className="space-y-3 relative z-10">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <h3 className="text-xl sm:text-2xl font-bold text-white tracking-wide font-sans">
+              <h3 className="text-xl sm:text-2xl font-normal text-white tracking-wide font-heading">
                 {getLocalized(project.title, lang)}
               </h3>
               <p className="text-xs sm:text-sm font-mono text-white/70 line-clamp-1 mt-0.5">

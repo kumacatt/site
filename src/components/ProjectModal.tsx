@@ -217,7 +217,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
                 ))}
               </div>
 
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white font-sans">
+              <h1 className="text-3xl sm:text-4xl font-normal tracking-wide text-white font-heading">
                 {getLocalized(project.title, lang)}
               </h1>
 

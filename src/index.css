@@ -3,6 +3,16 @@
 @tailwind utilities;
 
 @font-face {
+  font-family: 'Keleti';
+  src: url('/site/Keleti-Regular.ttf') format('truetype'),
+       url('./Keleti-Regular.ttf') format('truetype'),
+       url('/Keleti-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Gropled-Bold';
   src: url('/site/Gropled-Bold.otf') format('opentype'),
        url('./Gropled-Bold.otf') format('opentype'),
@@ -32,6 +42,20 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Dither effects & patterns */
+.dither-screen-overlay {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 0),
+                    radial-gradient(rgba(0, 0, 0, 0.3) 1px, transparent 0);
+  background-position: 0 0, 2px 2px;
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+}
+
+.dither-dots {
+  background-image: radial-gradient(rgba(245, 158, 11, 0.25) 1px, transparent 0);
+  background-size: 4px 4px;
 }
 
 /* Scrollbar customizations */

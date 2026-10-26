@@ -140,7 +140,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
     <div className="relative w-screen h-screen overflow-hidden bg-[#050507] flex flex-col md:flex-row select-none">
       {/* Top Brand Name */}
       <div className="absolute top-6 left-6 md:top-8 md:left-8 z-30 pointer-events-none">
-        <h1 className="text-sm md:text-base font-bold tracking-widest text-white uppercase font-sans">
+        <h1 className="text-base md:text-lg font-normal tracking-wider text-white uppercase font-heading">
           {t.name[lang]}
         </h1>
         <p className="text-[10px] font-mono tracking-wider text-white/40 uppercase mt-0.5">
@@ -186,6 +186,11 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
             hovered === 'gamedev' ? 'opacity-70' : 'opacity-90'
           }`}
         />
+        {/* Subtle dither screen texture on Gamedev Portal */}
+        <div
+          className="absolute inset-0 pointer-events-none dither-screen-overlay opacity-30 mix-blend-overlay z-20"
+          aria-hidden="true"
+        />
         {hovered === 'gamedev' && (
           <div className="absolute bottom-1/3 left-1/3 w-96 h-96 rounded-full bg-amber-500/20 blur-[130px] pointer-events-none animate-pulse z-20" />
         )}
@@ -197,7 +202,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
           </span>
 
           <div className="flex items-baseline justify-between">
-            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight uppercase transition-colors group-hover:text-amber-200">
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-normal text-white tracking-wide uppercase transition-colors group-hover:text-amber-200 font-heading">
               {t.realm1Title[lang]}
             </h2>
             <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 group-hover:text-white group-hover:border-amber-400 group-hover:bg-amber-500/20 transition-all flex-shrink-0 ml-4">
@@ -249,7 +254,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
           </span>
 
           <div className="flex items-baseline justify-between">
-            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight uppercase transition-colors group-hover:text-purple-200">
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-normal text-white tracking-wide uppercase transition-colors group-hover:text-purple-200 font-heading">
               {t.realm2Title[lang]}
             </h2>
             <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 group-hover:text-white group-hover:border-purple-400 group-hover:bg-purple-500/20 transition-all flex-shrink-0 ml-4">

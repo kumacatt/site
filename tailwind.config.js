@@ -9,6 +9,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        heading: ['Keleti', 'Gropled-Bold', 'Inter', 'sans-serif'],
         sans: ['Gropled-Bold', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['"Anonymous Pro"', 'ui-monospace', 'monospace']
       }
