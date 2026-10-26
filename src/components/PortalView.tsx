@@ -322,21 +322,6 @@ uniform float u_glow;
 uniform vec2 u_mouse;
 uniform float u_mouseActive;
 
-float bayer4(vec2 p) {
-  vec2 b = floor(mod(p, 4.0));
-  float m = 0.0;
-  if (b.y < 1.0) {
-    if (b.x < 1.0) m = 0.0; else if (b.x < 2.0) m = 8.0; else if (b.x < 3.0) m = 2.0; else m = 10.0;
-  } else if (b.y < 2.0) {
-    if (b.x < 1.0) m = 12.0; else if (b.x < 2.0) m = 4.0; else if (b.x < 3.0) m = 14.0; else m = 6.0;
-  } else if (b.y < 3.0) {
-    if (b.x < 1.0) m = 3.0; else if (b.x < 2.0) m = 11.0; else if (b.x < 3.0) m = 1.0; else m = 9.0;
-  } else {
-    if (b.x < 1.0) m = 15.0; else if (b.x < 2.0) m = 7.0; else if (b.x < 3.0) m = 13.0; else m = 5.0;
-  }
-  return m / 16.0;
-}
-
 vec2 getCoverUv(vec2 uv, vec2 imgSize) {
   vec2 cUv = uv;
   float screenAspect = max(0.01, u_resolution.x) / max(0.01, u_resolution.y);
@@ -412,44 +397,70 @@ void main() {
   }
 
   // =========================================================================
-  // REFRACTED & DISTORTED ANGLED DITHER RASTER STRIPES (Counterpart to GameDev)
+  // SMOOTH LIQUID-REFRACTED ANGLED STRIPES (NO DITHER, WITH FLUID DISTORTION)
   // =========================================================================
-  float effectiveGlow = max(0.08, u_glow);
+  float effectiveGlow = max(0.10, u_glow);
   if (effectiveGlow > 0.01) {
-    vec2 screenCoord = vUv * u_resolution;
-    // Fluid refraction displacement applied to dither coordinates
-    vec2 distortedCoord = screenCoord + disp * u_resolution * 2.4;
-    vec2 ditherPixel = floor(distortedCoord / 3.0);
+    // Top-left origin DOM space (identical to GameDev and cursor mouse coordinates)
+    vec2 domCoord = vec2(vUv.x, 1.0 - vUv.y) * u_resolution;
+    vec2 mousePixel = u_mouse * u_resolution;
 
-    // Identical ~7-degree angled moving wave equation
-    float stripeWave = sin((ditherPixel.x * 0.07 + ditherPixel.y * 0.014) - u_time * 1.4);
-    float intensity = max(0.0, stripeWave * 0.16 + 0.04) * effectiveGlow;
+    // Fluid distortion applied directly to the line coordinate space
+    vec2 liquidOffset = disp * u_resolution * 2.8 + vec2(density * 18.0 * 0.7, density * 18.0 * 0.35);
+    vec2 distortedCoord = domCoord + liquidOffset;
 
-    // Cursor excitation: energizes and sharpens the stripes under mouse
+    // Exact same ~7-degree angled moving wave equation (cx * 0.07 + cy * 0.014 in 3px units)
+    float phaseBase = (distortedCoord.x * 0.0233333 + distortedCoord.y * 0.0046666) - u_time * 1.4;
+
+    // Chromatic dispersion through the refracted stripes
+    float chromDisp = u_chromatic * 0.45;
+    float phaseR = phaseBase + disp.x * u_resolution.x * 0.008 * (1.0 + chromDisp);
+    float phaseG = phaseBase + disp.x * u_resolution.x * 0.008;
+    float phaseB = phaseBase + disp.x * u_resolution.x * 0.008 * (1.0 - chromDisp);
+
+    // Smooth, silky non-dithered stripe profiles
+    float waveR = sin(phaseR);
+    float waveG = sin(phaseG);
+    float waveB = sin(phaseB);
+
+    // Sharp luminous stripe profile (pow creates crisp bright beams with soft anti-aliased glow)
+    float stripeProfileR = pow(max(0.0, waveR * 0.5 + 0.5), 3.2);
+    float stripeProfileG = pow(max(0.0, waveG * 0.5 + 0.5), 3.2);
+    float stripeProfileB = pow(max(0.0, waveB * 0.5 + 0.5), 3.2);
+
+    float baseStripe = stripeProfileG;
+
+    // Mouse excitation: Directly energizes and sharpens the stripes under cursor (pinpoint 1:1, non-inverted)
+    float mouseGlow = 0.0;
     if (u_mouseActive > 0.5) {
-      vec2 mPixel = (u_mouse * u_resolution) / 3.0;
-      float dist = length(ditherPixel - mPixel);
-      float radius = 95.0;
+      float dist = length(domCoord - mousePixel);
+      float radius = 285.0; // 95 * 3px
       if (dist < radius) {
         float falloff = 1.0 - dist / radius;
-        float smoothFalloff = falloff * falloff;
-        intensity += (stripeWave * 0.45 + 0.55) * smoothFalloff * 0.95 * u_glow;
+        mouseGlow = falloff * falloff;
       }
     }
 
-    // Fluid turbulence adds tactile electric response to ripples
-    intensity += (speed * 0.6 + density * 0.4) * 0.35 * u_glow;
+    // Dynamic wave response: fluid speed and ripple density excite the stripes
+    float fluidExcitation = (speed * 0.7 + density * 0.5) * 0.45;
 
-    if (intensity > 0.02) {
-      float bayerThresh = bayer4(ditherPixel);
-      float shaped = pow(clamp(intensity, 0.0, 1.0), 1.25);
-      if (shaped > bayerThresh) {
-        float isCore = step(0.6, shaped);
-        // Design Electric Lilac / Purple Palette
-        vec3 stripeCol = mix(vec3(0.68, 0.35, 0.98), vec3(0.95, 0.85, 1.0), isCore);
-        float alpha = clamp(0.25 + shaped * 0.70, 0.0, 0.92);
-        col.rgb = mix(col.rgb, col.rgb + stripeCol * 0.85, alpha);
-      }
+    float intensity = (baseStripe * 0.38 + mouseGlow * (baseStripe * 0.45 + 0.55) * 0.85 + fluidExcitation) * effectiveGlow;
+
+    if (intensity > 0.005) {
+      // Design Electric Lilac / Violet Color Gradient
+      vec3 deepPurple = vec3(0.62, 0.28, 0.95);
+      vec3 brightLilac = vec3(0.95, 0.86, 1.00);
+
+      // Chromatic RGB tint
+      vec3 stripeRgb = vec3(stripeProfileR * 0.75 + stripeProfileG * 0.25, 
+                            stripeProfileG * 0.50 + stripeProfileB * 0.30, 
+                            stripeProfileB * 0.95);
+
+      vec3 finalStripeColor = mix(deepPurple * stripeRgb, brightLilac, clamp(intensity * 0.9, 0.0, 1.0));
+      float stripeAlpha = clamp(intensity * 0.88, 0.0, 0.95);
+
+      // Screen / additive blend with the refracted artwork
+      col.rgb = mix(col.rgb, col.rgb + finalStripeColor * 0.95, stripeAlpha);
     }
   }
 
