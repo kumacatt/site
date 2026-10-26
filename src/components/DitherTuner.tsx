@@ -41,21 +41,21 @@ export const loadDitherSettings = (): DitherSettings => {
 // ==========================================
 export interface RefractionSettings {
   specular: number;     // 0.0 (pure glass, no white) to 1.0 (bright glint)
-  distortion: number;   // 10.0 to 60.0px (strength of ripple lens)
-  chromatic: number;    // 0.0 to 1.5 (prism dispersion)
-  dissipation: number;  // 0.91 to 0.985 (fade duration)
-  waveRadius: number;   // 1.5 to 5.0px (wake thickness)
+  distortion: number;   // 10.0 to 70.0px (strength of ripple lens)
+  chromatic: number;    // 0.0 to 2.0 (prism dispersion)
+  dissipation: number;  // 0.91 to 0.990 (fade duration)
+  waveRadius: number;   // 1.5 to 16.0px (wake thickness)
 }
 
 export const DEFAULT_REFRACTION_SETTINGS: RefractionSettings = {
-  specular: 0.4,        // Глянец по умолчанию (сочные солнечные блики на гребнях волн!)
-  distortion: 38.0,
-  chromatic: 1.1,
-  dissipation: 0.965,
-  waveRadius: 3.5,
+  specular: 0.72,
+  distortion: 60.0,
+  chromatic: 1.50,
+  dissipation: 0.985,
+  waveRadius: 10,
 };
 
-const REFRACTION_STORAGE_KEY = 'kum_refraction_settings_v3';
+const REFRACTION_STORAGE_KEY = 'kum_refraction_settings_v4';
 
 export const loadRefractionSettings = (): RefractionSettings => {
   try {
@@ -268,32 +268,32 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
                     })
                   }
                   title="0% белого — кристально чистое преломление видео без белых бликов"
-                  className="flex-1 py-1.5 px-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-[10px] font-mono text-purple-300 font-bold transition-all text-center flex items-center justify-center gap-1"
+                  className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-mono text-white/80 hover:text-white transition-all text-center flex items-center justify-center gap-1"
                 >
                   <Droplets size={10} />
                   <span>Чистое стекло</span>
                 </button>
                 <button
                   onClick={() => applyRefractionPreset(DEFAULT_REFRACTION_SETTINGS)}
-                  title="Деликатный, приглушённый стеклянный блик"
-                  className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-mono text-white/80 hover:text-white transition-all text-center"
+                  title="Дефолтный насыщенный пресет преломления (specular 0.72, distortion 60, chromatic 1.5, dissipation 0.985, waveRadius 10)"
+                  className="flex-1 py-1.5 px-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-[10px] font-mono text-purple-300 font-bold transition-all text-center"
                 >
-                  Баланс
+                  По умолчанию
                 </button>
                 <button
                   onClick={() =>
                     applyRefractionPreset({
-                      specular: 0.4,
-                      distortion: 38.0,
-                      chromatic: 1.1,
+                      specular: 0.35,
+                      distortion: 35.0,
+                      chromatic: 1.0,
                       dissipation: 0.965,
-                      waveRadius: 3.5,
+                      waveRadius: 4.0,
                     })
                   }
-                  title="Яркие водные гребни"
+                  title="Мягкий деликатный баланс"
                   className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-mono text-white/70 hover:text-white transition-all text-center"
                 >
-                  Глянец
+                  Мягкий
                 </button>
               </div>
 
@@ -330,7 +330,7 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
                 <input
                   type="range"
                   min="10.0"
-                  max="60.0"
+                  max="70.0"
                   step="1.0"
                   value={refractionSettings.distortion}
                   onChange={e => updateRefraction('distortion', parseFloat(e.target.value))}
@@ -338,8 +338,8 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
                 />
                 <div className="flex justify-between text-[9px] font-mono text-white/40">
                   <span>10px Тонкое</span>
-                  <span>30px Оптика</span>
-                  <span>60px Глубокое</span>
+                  <span>40px Оптика</span>
+                  <span>70px Глубокое</span>
                 </div>
               </div>
 
@@ -352,7 +352,7 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
                 <input
                   type="range"
                   min="0.0"
-                  max="1.5"
+                  max="2.0"
                   step="0.05"
                   value={refractionSettings.chromatic}
                   onChange={e => updateRefraction('chromatic', parseFloat(e.target.value))}
@@ -360,8 +360,8 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
                 />
                 <div className="flex justify-between text-[9px] font-mono text-white/40">
                   <span>0 (Без призмы)</span>
-                  <span>0.75 Баланс</span>
-                  <span>1.5 Радуга</span>
+                  <span>1.0 Баланс</span>
+                  <span>2.0 Радуга</span>
                 </div>
               </div>
 
@@ -376,8 +376,8 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
                 <input
                   type="range"
                   min="0.91"
-                  max="0.985"
-                  step="0.005"
+                  max="0.990"
+                  step="0.001"
                   value={refractionSettings.dissipation}
                   onChange={e => updateRefraction('dissipation', parseFloat(e.target.value))}
                   className="w-full accent-purple-400 cursor-pointer h-1.5 bg-white/15 rounded-lg appearance-none"
@@ -393,12 +393,17 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
                 <input
                   type="range"
                   min="1.5"
-                  max="5.0"
-                  step="0.2"
+                  max="16.0"
+                  step="0.5"
                   value={refractionSettings.waveRadius}
                   onChange={e => updateRefraction('waveRadius', parseFloat(e.target.value))}
                   className="w-full accent-purple-400 cursor-pointer h-1.5 bg-white/15 rounded-lg appearance-none"
                 />
+                <div className="flex justify-between text-[9px] font-mono text-white/40">
+                  <span>1.5px Тонкий</span>
+                  <span>8px Средний</span>
+                  <span>16px Широкий</span>
+                </div>
               </div>
             </>
           ) : (

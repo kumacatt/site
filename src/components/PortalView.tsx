@@ -678,7 +678,7 @@ const PortalRefractionCanvas: React.FC<{
         const stepDx = dx / steps;
         const stepDy = dy / steps;
 
-        const baseRadius = currentSettings.waveRadius || 3.5;
+        const baseRadius = currentSettings.waveRadius || 10;
         const radius = Math.min(baseRadius * 1.6, baseRadius * 0.8 + dist * 0.18);
         const force = Math.min(5.0, 0.8 + dist * 0.4);
 
@@ -818,7 +818,7 @@ const PortalRefractionCanvas: React.FC<{
 
       project(u, v, u_prev, v_prev);
 
-      const decay = currentSettings.dissipation || 0.965;
+      const decay = currentSettings.dissipation || 0.985;
       for (let i = 0; i < simSize; i++) {
         u[i] *= decay;
         v[i] *= decay;
