@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
 import { getAssetUrl } from '../utils/asset';
-import { loadRefractionSettings, RefractionSettings } from './DitherTuner';
+import { loadRefractionSettings, RefractionSettings } from '../utils/tunerSettings';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -140,7 +140,8 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animId: number;
+    let animId = 0;
+    let isLoopRunning = false;
     const PIXEL_SCALE = 3;
     let w = 0;
     let h = 0;
@@ -193,6 +194,11 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
     }
 
     const render = () => {
+      if (document.hidden) {
+        isLoopRunning = false;
+        return;
+      }
+
       syncCanvasSize();
 
       targetGlow = active ? 1.0 : 0.0;
@@ -267,10 +273,26 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
       animId = requestAnimationFrame(render);
     };
 
-    animId = requestAnimationFrame(render);
+    const scheduleRender = () => {
+      if (!isLoopRunning && !document.hidden) {
+        isLoopRunning = true;
+        animId = requestAnimationFrame(render);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        scheduleRender();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    scheduleRender();
 
     return () => {
       cancelAnimationFrame(animId);
+      isLoopRunning = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (parent) {
         parent.removeEventListener('mousemove', handleMouseMove);
         parent.removeEventListener('mouseleave', handleMouseLeave);
@@ -465,7 +487,8 @@ const PortalRefractionCanvas: React.FC<{
       (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
     if (!gl) return;
 
-    let animId: number;
+    let animId = 0;
+    let isLoopRunning = false;
     let currentSettings: RefractionSettings = loadRefractionSettings();
 
     const handleSettingsUpdate = (e: Event) => {
@@ -841,13 +864,18 @@ const PortalRefractionCanvas: React.FC<{
     window.addEventListener('mouseleave', handleMouseLeave);
 
     const render = () => {
+      if (document.hidden) {
+        isLoopRunning = false;
+        return;
+      }
+
       gl.useProgram(program);
       gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
       gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
       // Real-time resolution sync (prevents stretching during flex-grow animation)
       const rect = canvas.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const targetW = Math.max(1, Math.round(rect.width * dpr));
       const targetH = Math.max(1, Math.round(rect.height * dpr));
 
@@ -954,10 +982,26 @@ const PortalRefractionCanvas: React.FC<{
       animId = requestAnimationFrame(render);
     };
 
-    animId = requestAnimationFrame(render);
+    const scheduleRender = () => {
+      if (!isLoopRunning && !document.hidden) {
+        isLoopRunning = true;
+        animId = requestAnimationFrame(render);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        scheduleRender();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    scheduleRender();
 
     return () => {
       cancelAnimationFrame(animId);
+      isLoopRunning = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(slideTimer);
       window.removeEventListener('kum-refraction-settings', handleSettingsUpdate);
       window.removeEventListener('mousemove', handleMouseMove);

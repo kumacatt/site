@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { loadRefractionSettings, RefractionSettings } from './DitherTuner';
+import { loadRefractionSettings, RefractionSettings } from '../utils/tunerSettings';
 
 // Vertex Shader: full-screen quad
 const VS_SOURCE = `
@@ -90,20 +90,36 @@ interface DesignRefractionFieldProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   canvasRef?: React.RefObject<HTMLCanvasElement>;
   active?: boolean;
+  isPaused?: boolean;
 }
 
 export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
   videoRef,
   canvasRef: externalRef,
   active = true,
+  isPaused = false,
 }) => {
   const internalRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = externalRef || internalRef;
   const activeRef = useRef(active);
+  const isPausedRef = useRef(isPaused);
+  const transitionFramesRef = useRef(60);
+  const scheduleRenderRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     activeRef.current = active;
+    if (active) {
+      transitionFramesRef.current = 60;
+      scheduleRenderRef.current?.();
+    }
   }, [active]);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+    if (!isPaused && (activeRef.current || transitionFramesRef.current > 0) && !document.hidden) {
+      scheduleRenderRef.current?.();
+    }
+  }, [isPaused]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,7 +130,8 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
                (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
     if (!gl) return;
 
-    let animId: number;
+    let animId = 0;
+    let isLoopRunning = false;
 
     // Load dynamic tuner settings
     let currentSettings: RefractionSettings = loadRefractionSettings();
@@ -199,9 +216,9 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
     fluidData.fill(128); // neutral 0 velocity
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, simW, simH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
 
-    // Canvas Resize (Native DPI for razor-sharp 1080p/4K rendering)
+    // Canvas Resize (Native DPI for razor-sharp 1080p/4K rendering, clamped to 1.5 max for GPU efficiency)
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = Math.round(window.innerWidth * dpr);
       const h = Math.round(window.innerHeight * dpr);
       if (canvas.width !== w || canvas.height !== h) {
@@ -512,6 +529,14 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
 
     // WebGL 60-120 FPS Render Loop
     const render = () => {
+      if (document.hidden || isPausedRef.current || (!activeRef.current && transitionFramesRef.current <= 0)) {
+        isLoopRunning = false;
+        return;
+      }
+      if (!activeRef.current) {
+        transitionFramesRef.current--;
+      }
+
       const dt = 0.016;
 
       // 1. Advance Navier-Stokes Simulation
@@ -569,10 +594,28 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({
       animId = requestAnimationFrame(render);
     };
 
-    animId = requestAnimationFrame(render);
+    const scheduleRender = () => {
+      if (!isLoopRunning && !document.hidden && !isPausedRef.current && (activeRef.current || transitionFramesRef.current > 0)) {
+        isLoopRunning = true;
+        animId = requestAnimationFrame(render);
+      }
+    };
+    scheduleRenderRef.current = scheduleRender;
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !isPausedRef.current && (activeRef.current || transitionFramesRef.current > 0)) {
+        scheduleRender();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    scheduleRender();
 
     return () => {
       cancelAnimationFrame(animId);
+      isLoopRunning = false;
+      scheduleRenderRef.current = null;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);

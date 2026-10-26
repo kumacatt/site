@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { loadDitherSettings, DitherSettings } from './DitherTuner';
+import { loadDitherSettings, DitherSettings } from '../utils/tunerSettings';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -14,15 +14,30 @@ const PIXEL_SCALE = 4;
 
 interface GamedevDitherFieldProps {
   active?: boolean;
+  isPaused?: boolean;
 }
 
-export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active = true }) => {
+export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active = true, isPaused = false }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef(active);
+  const isPausedRef = useRef(isPaused);
+  const transitionFramesRef = useRef(60);
+  const scheduleRenderRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     activeRef.current = active;
+    if (active) {
+      transitionFramesRef.current = 60;
+      scheduleRenderRef.current?.();
+    }
   }, [active]);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+    if (!isPaused && (activeRef.current || transitionFramesRef.current > 0) && !document.hidden) {
+      scheduleRenderRef.current?.();
+    }
+  }, [isPaused]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,7 +46,8 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    let animId: number;
+    let animId = 0;
+    let isLoopRunning = false;
     let canvasW = 0;
     let canvasH = 0;
     let imageData: ImageData | null = null;
@@ -359,7 +375,17 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
 
     // Render loop
     const render = () => {
-      if (!ctx || !imageData || !buf32) return;
+      if (document.hidden || isPausedRef.current || (!activeRef.current && transitionFramesRef.current <= 0)) {
+        isLoopRunning = false;
+        return;
+      }
+      if (!activeRef.current) {
+        transitionFramesRef.current--;
+      }
+      if (!ctx || !imageData || !buf32) {
+        isLoopRunning = false;
+        return;
+      }
 
       const dt = 0.016;
 
@@ -449,10 +475,28 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
       animId = requestAnimationFrame(render);
     };
 
-    animId = requestAnimationFrame(render);
+    const scheduleRender = () => {
+      if (!isLoopRunning && !document.hidden && !isPausedRef.current && (activeRef.current || transitionFramesRef.current > 0)) {
+        isLoopRunning = true;
+        animId = requestAnimationFrame(render);
+      }
+    };
+    scheduleRenderRef.current = scheduleRender;
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !isPausedRef.current && (activeRef.current || transitionFramesRef.current > 0)) {
+        scheduleRender();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    scheduleRender();
 
     return () => {
       cancelAnimationFrame(animId);
+      isLoopRunning = false;
+      scheduleRenderRef.current = null;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);

@@ -6,9 +6,10 @@ import { DesignRefractionField } from './DesignRefractionField';
 
 interface AmbientBackgroundProps {
   currentRealm?: RealmType | null;
+  isPaused?: boolean;
 }
 
-export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRealm = 'gamedev' }) => {
+export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRealm = 'gamedev', isPaused = false }) => {
   const gamedevVideoRef = useRef<HTMLVideoElement>(null);
   const designVideoRef = useRef<HTMLVideoElement>(null);
   const designCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,13 +36,29 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
   // Track previous realm for smooth fallback shockwaves
   const prevRealmRef = useRef<RealmType | null>(currentRealm);
 
-  // Ensure playback starts reliably on mount and realm switch
+  // Video play/pause management with visibility & modal pause support
   useEffect(() => {
-    if (currentRealm === 'design' && designVideoRef.current) {
-      designVideoRef.current.play().catch(() => {});
-    } else if (gamedevVideoRef.current) {
-      gamedevVideoRef.current.play().catch(() => {});
-    }
+    const syncPlayback = () => {
+      const shouldPlay = !document.hidden && !isPaused;
+      if (!shouldPlay) {
+        gamedevVideoRef.current?.pause();
+        designVideoRef.current?.pause();
+        return;
+      }
+
+      if (currentRealm === 'design') {
+        designVideoRef.current?.play().catch(() => {});
+        gamedevVideoRef.current?.pause();
+      } else {
+        gamedevVideoRef.current?.play().catch(() => {});
+        designVideoRef.current?.pause();
+      }
+    };
+
+    syncPlayback();
+
+    const handleVisibility = () => syncPlayback();
+    document.addEventListener('visibilitychange', handleVisibility);
 
     if (prevRealmRef.current && prevRealmRef.current !== currentRealm) {
       window.dispatchEvent(
@@ -55,7 +72,11 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
       );
     }
     prevRealmRef.current = currentRealm;
-  }, [currentRealm]);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [currentRealm, isPaused]);
 
   const isDesign = currentRealm === 'design';
 
@@ -98,7 +119,7 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         }`}
         style={{ willChange: 'opacity' }}
       >
-        <GamedevDitherField active={!isDesign} />
+        <GamedevDitherField active={!isDesign} isPaused={isPaused} />
       </div>
 
       <div
@@ -107,7 +128,7 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         }`}
         style={{ willChange: 'opacity' }}
       >
-        <DesignRefractionField videoRef={designVideoRef} canvasRef={designCanvasRef} active={isDesign} />
+        <DesignRefractionField videoRef={designVideoRef} canvasRef={designCanvasRef} active={isDesign} isPaused={isPaused} />
       </div>
 
       {/* Dreamlike Ambient Color Orbs matching the active realm */}
