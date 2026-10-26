@@ -346,13 +346,13 @@ void main() {
 
   float screenAspect = max(0.01, u_resolution.x) / max(0.01, u_resolution.y);
 
-  // 1. Fluid Velocity Displacement
-  vec2 fluidDisp = vel * (u_distortion * 0.0024);
+  // 1. Fluid Velocity Displacement (only active on hover via u_glow)
+  vec2 fluidDisp = vel * (u_distortion * 0.0014) * u_glow;
   fluidDisp.x /= screenAspect;
 
-  float chrom = u_chromatic * 0.45;
+  float chrom = u_chromatic * 0.35 * u_glow;
 
-  // 2. Optical Glass Fluted Stripe Refraction (The stripes strongly distort the picture!)
+  // 2. Optical Glass Fluted Stripe Refraction (activates smoothly only on hover!)
   vec2 domCoord = vec2(vUv.x, 1.0 - vUv.y) * u_resolution;
   vec2 mousePixel = u_mouse * u_resolution;
 
@@ -360,7 +360,7 @@ void main() {
   float stripePhase = (domCoord.x * 0.0233333 + domCoord.y * 0.0046666) - u_time * 1.4;
 
   // Fluid velocity and ripples dynamically warp the stripe refraction wave
-  stripePhase += (vel.x * 3.5 + vel.y * 2.0) + density * 7.0;
+  stripePhase += (vel.x * 2.5 + vel.y * 1.5 + density * 5.0) * u_glow;
 
   // Normal vector perpendicular to the stripes
   vec2 stripeNormal = normalize(vec2(0.07, 0.014));
@@ -370,16 +370,17 @@ void main() {
   float stripeWave = sin(stripePhase);
   float stripeSlope = cos(stripePhase);
 
-  // Mouse excitation: when cursor is near, the stripe distortion strongly intensifies
+  // Mouse excitation: when cursor is near, the stripe distortion intensifies gracefully
   float mouseDist = length(domCoord - mousePixel);
   float mouseExcitation = 0.0;
-  if (u_mouseActive > 0.5 && mouseDist < 320.0) {
-    float falloff = 1.0 - mouseDist / 320.0;
-    mouseExcitation = falloff * falloff * 1.8;
+  if (u_mouseActive > 0.5 && mouseDist < 300.0) {
+    float falloff = 1.0 - mouseDist / 300.0;
+    mouseExcitation = falloff * falloff * 1.2;
   }
 
-  // Strong optical stripe displacement factor (calibrated for prominent fluted glass refraction)
-  float stripeDistortPower = (0.018 + mouseExcitation * 0.028 + speed * 0.016) * (u_distortion / 60.0);
+  // Refined optical stripe displacement factor (calibrated for elegant, non-overwhelming refraction)
+  // Strictly scaled by u_glow: zero distortion when not hovered!
+  float stripeDistortPower = (0.007 + mouseExcitation * 0.012 + speed * 0.008) * (u_distortion / 60.0) * u_glow;
   vec2 stripeDisp = stripeNormal * (stripeSlope * stripeDistortPower);
 
   // Combined total displacement (fluid motion + moving fluted stripes)
@@ -430,14 +431,14 @@ void main() {
     col = mix(col0, col1, u_fade);
   }
 
-  // Refined, subtle holographic glass sheen along the stripe crests (never blinding or opaque)
+  // Refined, subtle holographic glass sheen along the stripe crests (fades to 0 when not hovered)
   float crest = pow(max(0.0, stripeWave * 0.5 + 0.5), 3.5);
-  vec3 glassSheen = vec3(0.65, 0.35, 1.00) * (crest * (0.07 + mouseExcitation * 0.12));
+  vec3 glassSheen = vec3(0.65, 0.35, 1.00) * (crest * (0.04 + mouseExcitation * 0.08) * u_glow);
   col.rgb += glassSheen;
 
-  // Glossy specular water sheen
-  float slope = speed * 1.6 + density * 0.5;
-  float spec = pow(clamp(slope * 1.5, 0.0, 1.0), 1.3) * (u_specular * 0.85);
+  // Glossy specular water sheen (also scaled by u_glow)
+  float slope = (speed * 1.6 + density * 0.5) * u_glow;
+  float spec = pow(clamp(slope * 1.5, 0.0, 1.0), 1.3) * (u_specular * 0.70);
 
   gl_FragColor = vec4(clamp(col.rgb + vec3(spec * 0.9, spec * 0.8, spec * 1.15), 0.0, 1.0), 1.0);
 }
