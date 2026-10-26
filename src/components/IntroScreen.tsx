@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Sparkles, Wand2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
@@ -445,23 +445,18 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
           {t.name[lang]}
         </h1>
 
-        <p className="relative text-base sm:text-2xl font-mono text-white/85 tracking-wide font-light drop-shadow">
+        <p className="relative text-base sm:text-xl font-mono text-white/35 tracking-widest font-light">
           {t.roles[lang]}
         </p>
       </div>
 
-      {/* Bottom Call to Action ("Press any key") — Clean luxury glass without retro ASCII text */}
-      <div className="relative z-20 flex flex-col items-center space-y-3 pb-6 pointer-events-auto">
-        <div className="group flex items-center gap-3 px-8 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 hover:border-amber-500/40 backdrop-blur-xl text-xs sm:text-sm font-mono text-white transition-all shadow-[0_4px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_35px_rgba(245,158,11,0.25)]">
-          <Wand2 size={14} className="text-amber-400 group-hover:rotate-45 transition-transform" />
-          <span className="font-medium text-white group-hover:text-amber-200 transition-colors">
+      {/* Bottom Call to Action ("Press any key") — Clean luxury glass without icons */}
+      <div className="relative z-20 flex flex-col items-center pb-6 pointer-events-auto">
+        <div className="group flex items-center px-8 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 hover:border-amber-500/40 backdrop-blur-xl text-xs sm:text-sm font-mono text-white transition-all shadow-[0_4px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_35px_rgba(245,158,11,0.25)]">
+          <span className="font-medium text-white/90 group-hover:text-amber-200 transition-colors">
             {t.pressAnyKey[lang]}
           </span>
-          <ArrowRight size={14} className="group-hover:translate-x-1.5 transition-transform text-amber-300" />
         </div>
-        <span className="text-[10px] font-mono text-white/35 uppercase tracking-widest">
-          {t.clickHint[lang]}
-        </span>
       </div>
     </div>
   );
