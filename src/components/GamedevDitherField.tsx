@@ -1,6 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { RealmType } from '../data/projects';
-import { loadDitherSettings, DitherSettings } from './DitherTuner';
+import {
+  loadDitherSettings,
+  DitherSettings,
+  loadRefractionSettings,
+  RefractionSettings,
+} from './DitherTuner';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -44,16 +49,26 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
     const offscreenCanvas = document.createElement('canvas');
     const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
 
-    // Load dynamic tuner settings (persisted in localStorage or default)
+    // Load dynamic tuner settings (GameDev Dither & Design Refraction)
     let currentSettings: DitherSettings = loadDitherSettings();
+    let currentRefraction: RefractionSettings = loadRefractionSettings();
 
-    const handleSettingsUpdate = (e: Event) => {
+    const handleDitherUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<DitherSettings>;
       if (customEvent.detail) {
         currentSettings = { ...customEvent.detail };
       }
     };
-    window.addEventListener('kum-dither-settings', handleSettingsUpdate);
+
+    const handleRefractionUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<RefractionSettings>;
+      if (customEvent.detail) {
+        currentRefraction = { ...customEvent.detail };
+      }
+    };
+
+    window.addEventListener('kum-dither-settings', handleDitherUpdate);
+    window.addEventListener('kum-refraction-settings', handleRefractionUpdate);
 
     // Pre-allocated Float32Array buffers for Navier-Stokes simulation
     const u = new Float32Array(SIM_SIZE);
@@ -191,8 +206,8 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
         const stepDx = dx / steps;
         const stepDy = dy / steps;
 
-        // Radius dynamically adapted from Tuner (or smooth liquid ripple radius for Design)
-        const baseRadius = isDesign ? 3.2 : currentSettings.fluidRadius;
+        // Radius dynamically adapted from Tuner for both realms
+        const baseRadius = isDesign ? currentRefraction.waveRadius : currentSettings.fluidRadius;
         const radius = Math.min(baseRadius * 1.5, baseRadius * 0.75 + dist * 0.16);
         const force = isDesign ? Math.min(4.5, 0.6 + dist * 0.35) : Math.min(3.5, 0.4 + dist * 0.25);
 
@@ -262,8 +277,8 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       dens_prev.set(dens);
       advect(dens, dens_prev, u, v, dt);
 
-      // Dissipation rate (Design uses natural liquid ripple dissipation; GameDev uses Tuner setting)
-      const dissipation = isDesign ? 0.960 : currentSettings.dissipation;
+      // Dissipation rate dynamically adapted per realm
+      const dissipation = isDesign ? currentRefraction.dissipation : currentSettings.dissipation;
       for (let i = 0; i < SIM_SIZE; i++) {
         dens[i] *= dissipation;
         u[i] *= 0.965;
@@ -337,7 +352,7 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
             // ==========================================
             // === DESIGN & IDENTITY: OPTICAL REFRACTION
             // ==========================================
-            // No colored smoke. Pure liquid water/glass distortion & caustics like lusion.co!
+            // Dynamic liquid refraction with adjustable specular glint & distortion
             if (hasMotion) {
               const u00 = u[r0 + simX0];
               const u10 = u[r0 + simX1];
@@ -359,43 +374,49 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
 
               if (speedSq > 0.0001 || fluidDensity > 0.005) {
                 const speed = Math.sqrt(speedSq);
-                const dispStrength = 30.0;
+                const dispStrength = currentRefraction.distortion;
                 const dispX = vx * dispStrength;
                 const dispY = vy * dispStrength;
 
-                // Specular liquid glass surface glint (curling wave crest sheen)
-                const waveSlope = speed * 1.6 + fluidDensity * 0.45;
-                const specular = Math.min(220, Math.floor(Math.pow(Math.min(1.0, waveSlope * 1.5), 1.35) * 220));
+                // Tunable specular sheen (If specular is 0.0, maxSpec is 0 -> pure video deformation!)
+                const waveSlope = speed * 1.5 + fluidDensity * 0.45;
+                const maxSpec = Math.round(180 * currentRefraction.specular);
+                const specular = maxSpec > 0
+                  ? Math.min(maxSpec, Math.floor(Math.pow(Math.min(1.0, waveSlope * 1.5), 1.35) * maxSpec))
+                  : 0;
 
                 if (vidBuf32) {
-                  // Refraction with Chromatic Dispersion (Prismatic Red/Blue split)
-                  // Red offset
-                  const rx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * 1.3) | 0));
-                  const ry = Math.max(0, Math.min(canvasH - 1, (cy + dispY * 1.3) | 0));
+                  // Refraction with Chromatic Dispersion
+                  const chrom = currentRefraction.chromatic;
+                  const rMult = 1.0 + chrom * 0.35;
+                  const bMult = 1.0 - chrom * 0.35;
+
+                  // Red channel offset
+                  const rx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * rMult) | 0));
+                  const ry = Math.max(0, Math.min(canvasH - 1, (cy + dispY * rMult) | 0));
                   const r = vidBuf32[ry * canvasW + rx] & 0xff;
 
-                  // Green center
+                  // Green channel center
                   const gx = Math.max(0, Math.min(canvasW - 1, (cx + dispX) | 0));
                   const gy = Math.max(0, Math.min(canvasH - 1, (cy + dispY) | 0));
                   const g = (vidBuf32[gy * canvasW + gx] >> 8) & 0xff;
 
-                  // Blue offset
-                  const bx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * 0.7) | 0));
-                  const by = Math.max(0, Math.min(canvasH - 1, (cy + dispY * 0.7) | 0));
+                  // Blue channel offset
+                  const bx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * bMult) | 0));
+                  const by = Math.max(0, Math.min(canvasH - 1, (cy + dispY * bMult) | 0));
                   const b = (vidBuf32[by * canvasW + bx] >> 16) & 0xff;
 
-                  // Composite displaced image with luminous caustic specular glint
+                  // Composite displaced image with specular highlight
                   const outR = Math.min(255, r + specular);
                   const outG = Math.min(255, g + specular);
-                  const outB = Math.min(255, b + Math.floor(specular * 1.15));
+                  const outB = Math.min(255, b + Math.floor(specular * 1.1));
 
                   // Alpha blend: smoothly overlays distorted ripples over undisturbed background video
                   const alpha = Math.min(255, Math.floor(Math.min(1.0, speed * 2.8 + fluidDensity * 1.6) * 255));
                   pixel = makeColor(outR, outG, outB, alpha);
-                } else {
-                  // Clear water caustic sheen (if video buffer is initializing or fallback)
-                  const alpha = Math.min(180, specular);
-                  pixel = makeColor(255, 255, 255, alpha);
+                } else if (specular > 0) {
+                  // Fallback transparent sheen if video buffer is loading
+                  pixel = makeColor(255, 255, 255, specular);
                 }
               }
             }
@@ -450,7 +471,8 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
-      window.removeEventListener('kum-dither-settings', handleSettingsUpdate);
+      window.removeEventListener('kum-dither-settings', handleDitherUpdate);
+      window.removeEventListener('kum-refraction-settings', handleRefractionUpdate);
     };
   }, [isDesign, videoRef]);
 
