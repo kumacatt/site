@@ -44,7 +44,7 @@ export const GameDevView: React.FC<GameDevViewProps> = ({ onOpenProject }) => {
   return (
     <div className="relative z-10 w-full">
       {/* 1. Spacious Hero Welcome Screen: Ambient Video breathes, Title in Bottom-Left */}
-      <section className="relative min-h-[82vh] sm:min-h-[88vh] flex flex-col justify-end pt-28 pb-10 sm:pb-16 px-4 sm:px-8 max-w-7xl mx-auto w-full">
+      <section className="relative min-h-[82vh] sm:min-h-[88vh] flex flex-col justify-end pt-28 pb-10 sm:pb-16 px-4 sm:px-6 md:px-10 lg:px-12 w-full">
         <div className="space-y-4 max-w-3xl relative z-10">
           {/* Realm Tag */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono uppercase tracking-wider backdrop-blur-md">
@@ -75,8 +75,8 @@ export const GameDevView: React.FC<GameDevViewProps> = ({ onOpenProject }) => {
         </div>
       </section>
 
-      {/* 2. Showcase Bento Grid Section */}
-      <div id="works" className="pt-8 sm:pt-14 pb-20 px-4 sm:px-8 max-w-7xl mx-auto">
+      {/* 2. Showcase Bento Grid Section (Full-width window span) */}
+      <div id="works" className="pt-8 sm:pt-14 pb-20 px-4 sm:px-6 md:px-10 lg:px-12 w-full">
         {/* Simple & Clean Filter Tabs with comfortable touch sizes */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6 pb-4 border-b border-white/10">
           <div className="flex items-center gap-2 flex-wrap">
@@ -106,7 +106,7 @@ export const GameDevView: React.FC<GameDevViewProps> = ({ onOpenProject }) => {
             {lang === 'ru' ? 'Работ в категории пока нет' : 'No projects in this category'}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-[270px] sm:auto-rows-[300px] grid-flow-dense gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 auto-rows-[280px] sm:auto-rows-[310px] md:auto-rows-[340px] grid-flow-dense gap-4 sm:gap-5 md:gap-6">
             {filteredProjects.map((project, idx) => (
               <ProjectCard
                 key={project.id}
