@@ -406,6 +406,11 @@ const PortalRefractionCanvas: React.FC<{
   intervalMs?: number;
 }> = ({ images, hovered, intervalMs = 3000 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hoveredRef = useRef(hovered);
+
+  useEffect(() => {
+    hoveredRef.current = hovered;
+  }, [hovered]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -527,7 +532,7 @@ const PortalRefractionCanvas: React.FC<{
     let currentIdx = 0;
     let nextIdx = 1 % images.length;
     let fadeStartTime = 0;
-    const FADE_DURATION = 1000;
+    const FADE_DURATION = 800; // Crisp 800ms crossfade
     let isFading = false;
 
     // Load initial image
@@ -834,7 +839,7 @@ const PortalRefractionCanvas: React.FC<{
       gl.uniform2f(uImgSize1Loc, nxtImg?.naturalWidth || 1920, nxtImg?.naturalHeight || 1080);
 
       // Gentle ambient liquid ripple when hovering
-      if (hovered && Math.random() < 0.015) {
+      if (hoveredRef.current && Math.random() < 0.015) {
         const ax = simW * 0.25 + Math.random() * simW * 0.5;
         const ay = simH * 0.25 + Math.random() * simH * 0.5;
         const angle = Math.random() * Math.PI * 2;
@@ -916,7 +921,7 @@ const PortalRefractionCanvas: React.FC<{
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [images, intervalMs, hovered]);
+  }, [images, intervalMs]);
 
   return (
     <div
