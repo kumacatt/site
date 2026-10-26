@@ -39,6 +39,7 @@ const DESIGN_PORTAL_ARTWORKS = [
 
 interface PortalViewProps {
   onSelectRealm: (realm: RealmType) => void;
+  onBackToIntro?: () => void;
 }
 
 // Memory-efficient two-slot slide layer with persistent DOM nodes and 1000ms CSS crossfades
@@ -1079,7 +1080,7 @@ const PortalRefractionCanvas: React.FC<{
 // =========================================================================
 // MAIN PORTAL VIEW COMPONENT
 // =========================================================================
-export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
+export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToIntro }) => {
   const { lang } = useLanguage();
   const t = TRANSLATIONS.portal;
   const [hovered, setHovered] = useState<RealmType | null>(null);
@@ -1091,10 +1092,14 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#050507] flex flex-col md:flex-row select-none">
-      {/* Top Brand Name — Uses Gropled-Bold (font-sans) for Design by default */}
-      <div className="absolute top-6 left-6 md:top-8 md:left-8 z-30 pointer-events-none space-y-1">
+      {/* Top Brand Name — Click returns to IntroScreen */}
+      <div
+        onClick={onBackToIntro}
+        className="absolute top-6 left-6 md:top-8 md:left-8 z-30 space-y-1 cursor-pointer group pointer-events-auto"
+        title={lang === 'ru' ? 'Вернуться на приветственный экран' : 'Back to welcome screen'}
+      >
         <h1
-          className={`text-base md:text-xl uppercase transition-all duration-300 ${
+          className={`text-base md:text-xl uppercase transition-all duration-300 group-hover:text-amber-300 ${
             hovered === 'gamedev'
               ? 'font-heading font-normal tracking-wide text-amber-300'
               : 'font-sans font-black tracking-tight text-white'
@@ -1106,7 +1111,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
             ? 'Дизайн и айдентика'
             : 'Design & Identity'}
         </h1>
-        <p className="text-[11px] font-mono tracking-wider text-white/50 uppercase">
+        <p className="text-[11px] font-mono tracking-wider text-white/50 group-hover:text-white/80 transition-colors uppercase">
           {t.name[lang]} • {t.portfolio[lang]}
         </p>
       </div>

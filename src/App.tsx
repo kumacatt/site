@@ -40,7 +40,12 @@ export const App: React.FC = () => {
 
     return () => clearTimeout(idleTimer);
   }, []);
-  
+
+  // Track intro screen state (shows on first visit to root unless direct link was used)
+  const [hasEnteredIntro, setHasEnteredIntro] = useState(() => {
+    const hash = window.location.hash.replace(/^#\/?/, '').trim();
+    return hash === 'gamedev' || hash === 'design' || hash === 'portal' || hash.startsWith('project/');
+  });
 
   const activeProject = PROJECTS.find(p => p.id === route.activeProjectId) || null;
 
@@ -63,15 +68,31 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. If on root entrance or user navigated back to welcome screen (null realm)
-  if (route.currentRealm === null) {
+  // 1. Welcome Screen (IntroScreen): Shows first, and when returning via top-left button
+  if (!hasEnteredIntro && route.currentRealm === null) {
     return (
       <div className="relative min-h-screen bg-[#050508] text-white">
         <CustomCursor />
         <IntroScreen
           onEnter={(targetRealm) => {
-            setRealm(targetRealm || 'gamedev');
+            setHasEnteredIntro(true);
+            if (targetRealm) {
+              setRealm(targetRealm);
+            }
           }}
+        />
+      </div>
+    );
+  }
+
+  // 2. Sphere Selection Screen (PortalView / Выбор сферы): Opens when user scrolls through intro
+  if (route.currentRealm === null) {
+    return (
+      <div className="relative min-h-screen bg-[#050508] text-white">
+        <CustomCursor />
+        <PortalView
+          onSelectRealm={(realm) => setRealm(realm)}
+          onBackToIntro={() => setHasEnteredIntro(false)}
         />
       </div>
     );
@@ -91,6 +112,7 @@ export const App: React.FC = () => {
         currentRealm={route.currentRealm}
         onSelectRealm={(r) => setRealm(r)}
         onOpenPortal={() => {
+          setHasEnteredIntro(false);
           setRealm(null);
         }}
         onScrollTo={handleScrollTo}
