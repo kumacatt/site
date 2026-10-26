@@ -4,7 +4,6 @@ import { SOFTWARE_MAP } from '../data/software';
 import { ArrowUpRight, BookOpen } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
-import { getAssetUrl } from '../utils/asset';
 
 interface ProjectCardProps {
   project: Project;
@@ -91,6 +90,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, index
       onMouseEnter={() => setIsHovered(true)}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      data-bento-card="true"
       className={`group relative cursor-pointer select-none rounded-2xl overflow-hidden bg-neutral-950/70 border border-white/5 hover:border-white/25 transition-all duration-500 ease-out ${getSpanClasses()}`}
       style={{
         transform: `perspective(1000px) rotateX(${tilt.x + scrollYVelocity}deg) rotateY(${tilt.y}deg) scale3d(${
@@ -123,55 +123,6 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, index
           isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Procedural Dither Edge Shader (Gamedev cards only - crawls in along the sides with blur) */}
-        {project.realm === 'gamedev' && (
-          <div
-            className={`absolute inset-0 pointer-events-none -z-10 overflow-hidden transition-opacity duration-300 ${
-              isHovered ? 'opacity-100' : 'opacity-0'
-            }`}
-            aria-hidden="true"
-          >
-            {/* Left Side Bayer Dither Ramp */}
-            <div
-              className="absolute top-0 bottom-0 left-0 w-12 transition-transform duration-300 ease-out"
-              style={{
-                transform: isHovered ? 'translateX(0)' : 'translateX(-12px)',
-                maskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-                WebkitMaskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-                maskRepeat: 'repeat-y',
-                WebkitMaskRepeat: 'repeat-y',
-                maskSize: '48px 8px',
-                WebkitMaskSize: '48px 8px',
-                background: 'linear-gradient(to right, rgba(245, 158, 11, 0.45) 0%, rgba(245, 158, 11, 0.1) 65%, transparent 100%)',
-              }}
-            />
-
-            {/* Right Side Bayer Dither Ramp (Flipped) */}
-            <div
-              className="absolute top-0 bottom-0 right-0 w-12 transition-transform duration-300 ease-out"
-              style={{
-                transform: isHovered ? 'scaleX(-1) translateX(0)' : 'scaleX(-1) translateX(-12px)',
-                maskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-                WebkitMaskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-                maskRepeat: 'repeat-y',
-                WebkitMaskRepeat: 'repeat-y',
-                maskSize: '48px 8px',
-                WebkitMaskSize: '48px 8px',
-                background: 'linear-gradient(to right, rgba(245, 158, 11, 0.45) 0%, rgba(245, 158, 11, 0.1) 65%, transparent 100%)',
-              }}
-            />
-
-            {/* Interactive Mouse Highlight inside Card */}
-            <div
-              className="absolute inset-0 transition-opacity duration-150"
-              style={{
-                background: 'radial-gradient(circle 120px at var(--card-mouse-x, 50%) var(--card-mouse-y, 50%), rgba(245, 158, 11, 0.12) 0%, transparent 100%)',
-                mixBlendMode: 'screen',
-              }}
-            />
-          </div>
-        )}
-
         {/* Top strip */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 flex-wrap">

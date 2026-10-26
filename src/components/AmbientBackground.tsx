@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { RealmType } from '../data/projects';
 import { getAssetUrl } from '../utils/asset';
+import { GamedevDitherField } from './GamedevDitherField';
 
 interface AmbientBackgroundProps {
   currentRealm?: RealmType | null;
@@ -9,7 +10,6 @@ interface AmbientBackgroundProps {
 export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRealm = 'gamedev' }) => {
   const gamedevVideoRef = useRef<HTMLVideoElement>(null);
   const designVideoRef = useRef<HTMLVideoElement>(null);
-  const ditherRef = useRef<HTMLDivElement>(null);
 
   // Dynamic scroll-based subtle blur for surreal depth
   useEffect(() => {
@@ -36,37 +36,6 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
   }, [currentRealm]);
 
   const isDesign = currentRealm === 'design';
-
-  // Fast 120 FPS mouse tracking for the Gamedev analog dither spotlight
-  useEffect(() => {
-    if (isDesign) return;
-    if (window.matchMedia('(pointer: coarse)').matches) return;
-
-    let animFrameId: number;
-    let targetX = -500;
-    let targetY = -500;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      targetX = e.clientX;
-      targetY = e.clientY;
-    };
-
-    const updateLoop = () => {
-      if (ditherRef.current) {
-        ditherRef.current.style.setProperty('--bg-mouse-x', `${targetX}px`);
-        ditherRef.current.style.setProperty('--bg-mouse-y', `${targetY}px`);
-      }
-      animFrameId = requestAnimationFrame(updateLoop);
-    };
-
-    animFrameId = requestAnimationFrame(updateLoop);
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-
-    return () => {
-      cancelAnimationFrame(animFrameId);
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [isDesign]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[#060609]">
@@ -102,67 +71,8 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         <source src={getAssetUrl('/2_Polyana_F.mp4')} type="video/mp4" />
       </video>
 
-      {/* 3. GAMEDEV EXCLUSIVE: Analog Stepped Dither Spotlight strictly on background (Behind content z-10) */}
-      {!isDesign && (
-        <div ref={ditherRef} className="absolute inset-0 pointer-events-none z-[1] overflow-hidden">
-          {/* Permanent Base 8x8 Dither: Crisp 2x2 square pixels visible everywhere in background */}
-          <div
-            className="absolute inset-0 opacity-16"
-            style={{
-              backgroundImage: `url(${getAssetUrl('/dither-sharp.svg')})`,
-              backgroundRepeat: 'repeat',
-              backgroundSize: '8px 8px',
-              imageRendering: 'pixelated',
-            }}
-          />
-
-          {/* Stepped Analog Spotlight: Tight 65px radius with sharp stepped discrete rings */}
-          <div
-            className="absolute inset-0"
-            style={{
-              maskImage: `radial-gradient(circle 65px at var(--bg-mouse-x, -500px) var(--bg-mouse-y, -500px), 
-                black 0px, 
-                black 20px, 
-                rgba(0,0,0,0.65) 20px, 
-                rgba(0,0,0,0.65) 42px, 
-                rgba(0,0,0,0.2) 42px, 
-                rgba(0,0,0,0.2) 65px, 
-                transparent 65px)`,
-              WebkitMaskImage: `radial-gradient(circle 65px at var(--bg-mouse-x, -500px) var(--bg-mouse-y, -500px), 
-                black 0px, 
-                black 20px, 
-                rgba(0,0,0,0.65) 20px, 
-                rgba(0,0,0,0.65) 42px, 
-                rgba(0,0,0,0.2) 42px, 
-                rgba(0,0,0,0.2) 65px, 
-                transparent 65px)`,
-            }}
-          >
-            {/* Luminous Bayer dither pixels */}
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${getAssetUrl('/dither-sharp-glow.svg')})`,
-                backgroundRepeat: 'repeat',
-                backgroundSize: '8px 8px',
-                imageRendering: 'pixelated',
-              }}
-            />
-            {/* Stepped warm amber beam */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `radial-gradient(circle 60px at var(--bg-mouse-x, -500px) var(--bg-mouse-y, -500px), 
-                  rgba(245, 158, 11, 0.38) 0px, 
-                  rgba(245, 158, 11, 0.22) 20px, 
-                  rgba(245, 158, 11, 0.08) 42px, 
-                  transparent 60px)`,
-                mixBlendMode: 'screen',
-              }}
-            />
-          </div>
-        </div>
-      )}
+      {/* 3. GAMEDEV EXCLUSIVE: Interactive Canvas Dither Field (Behind content z-10) */}
+      {!isDesign && <GamedevDitherField />}
 
       {/* Dreamlike Ambient Color Orbs matching the active realm */}
       <div
