@@ -326,8 +326,8 @@ uniform vec2 u_imgSize1;
 
 vec2 getCoverUv(vec2 uv, vec2 imgSize) {
   vec2 cUv = uv;
-  float screenAspect = u_resolution.x / u_resolution.y;
-  float imgAspect = imgSize.x / imgSize.y;
+  float screenAspect = max(0.01, u_resolution.x) / max(0.01, u_resolution.y);
+  float imgAspect = max(0.01, imgSize.x) / max(0.01, imgSize.y);
   if (screenAspect > imgAspect) {
     float scale = screenAspect / imgAspect;
     cUv.y = (cUv.y - 0.5) / scale + 0.5;
@@ -346,11 +346,11 @@ void main() {
   float density = fluid.b;
   float speed = length(vel);
 
-  float screenAspect = u_resolution.x / u_resolution.y;
-  vec2 disp = vel * (u_distortion * 0.0014);
+  float screenAspect = max(0.01, u_resolution.x) / max(0.01, u_resolution.y);
+  vec2 disp = vel * (u_distortion * 0.0022);
   disp.x /= screenAspect;
 
-  float chrom = u_chromatic * 0.40;
+  float chrom = u_chromatic * 0.45;
 
   vec2 baseUv0 = getCoverUv(vUv, u_imgSize0);
   vec2 uvR0 = clamp(baseUv0 + disp * (1.0 + chrom), 0.001, 0.999);
@@ -381,10 +381,10 @@ void main() {
   }
 
   // Glossy specular water sheen
-  float slope = speed * 1.6 + density * 0.45;
-  float spec = pow(clamp(slope * 1.5, 0.0, 1.0), 1.4) * (u_specular * 0.75);
+  float slope = speed * 1.6 + density * 0.5;
+  float spec = pow(clamp(slope * 1.5, 0.0, 1.0), 1.3) * (u_specular * 0.85);
 
-  gl_FragColor = vec4(clamp(col.rgb + vec3(spec, spec, spec * 1.1), 0.0, 1.0), 1.0);
+  gl_FragColor = vec4(clamp(col.rgb + vec3(spec, spec, spec * 1.15), 0.0, 1.0), 1.0);
 }
 `;
 
@@ -494,6 +494,7 @@ const PortalRefractionCanvas: React.FC<{
     const imageElements: HTMLImageElement[] = [];
     images.forEach((src) => {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.src = src;
       imageElements.push(img);
     });
@@ -541,6 +542,7 @@ const PortalRefractionCanvas: React.FC<{
 
     let lastSimX = -100;
     let lastSimY = -100;
+    let isMouseActive = false;
 
     const advect = (
       d: Float32Array,
@@ -616,30 +618,7 @@ const PortalRefractionCanvas: React.FC<{
       }
     };
 
-    const addForce = (x: number, y: number, fx: number, fy: number) => {
-      const radius = currentSettings.waveRadius || 3.5;
-      const radSq = radius * radius;
-      const minX = Math.max(1, Math.floor(x - radius));
-      const maxX = Math.min(SIM_W - 2, Math.ceil(x + radius));
-      const minY = Math.max(1, Math.floor(y - radius));
-      const maxY = Math.min(SIM_H - 2, Math.ceil(y + radius));
-
-      for (let cy = minY; cy <= maxY; cy++) {
-        const row = cy * SIM_W;
-        for (let cx = minX; cx <= maxX; cx++) {
-          const dSq = (cx - x) * (cx - x) + (cy - y) * (cy - y);
-          if (dSq < radSq) {
-            const falloff = 1.0 - Math.sqrt(dSq) / radius;
-            const weight = falloff * falloff;
-            const idx = row + cx;
-            u[idx] += fx * weight;
-            v[idx] += fy * weight;
-            dens[idx] = Math.min(1.0, dens[idx] + weight * 0.45);
-          }
-        }
-      }
-    };
-
+    // Global window mouse listener ensures 100% reliable tracking even over nested DOM overlays
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
@@ -647,17 +626,64 @@ const PortalRefractionCanvas: React.FC<{
       const normX = (e.clientX - rect.left) / rect.width;
       const normY = (e.clientY - rect.top) / rect.height;
 
-      if (normX < 0 || normX > 1 || normY < 0 || normY > 1) return;
+      // Only inject force when cursor is within the Design half card bounds
+      if (normX < 0 || normX > 1 || normY < 0 || normY > 1) {
+        if (isMouseActive) {
+          isMouseActive = false;
+          lastSimX = -100;
+          lastSimY = -100;
+        }
+        return;
+      }
 
       const simX = normX * SIM_W;
       const simY = normY * SIM_H;
 
-      if (lastSimX >= 0) {
-        const dx = simX - lastSimX;
-        const dy = simY - lastSimY;
-        const speed = Math.hypot(dx, dy);
-        if (speed > 0.05) {
-          addForce(simX, simY, dx * 0.45, dy * 0.45);
+      if (!isMouseActive || lastSimX < 0) {
+        lastSimX = simX;
+        lastSimY = simY;
+        isMouseActive = true;
+        return;
+      }
+
+      const dx = simX - lastSimX;
+      const dy = simY - lastSimY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 0.08) {
+        // Multi-step interpolation ensures smooth, continuous fluid trails even during fast flicks
+        const steps = Math.min(14, Math.max(1, Math.ceil(dist / 1.4)));
+        const stepDx = dx / steps;
+        const stepDy = dy / steps;
+
+        const baseRadius = currentSettings.waveRadius || 3.5;
+        const radius = Math.min(baseRadius * 1.6, baseRadius * 0.8 + dist * 0.18);
+        const force = Math.min(5.0, 0.8 + dist * 0.4);
+
+        for (let s = 0; s <= steps; s++) {
+          const px = lastSimX + stepDx * s;
+          const py = lastSimY + stepDy * s;
+
+          const minX = Math.max(1, Math.floor(px - radius));
+          const maxX = Math.min(SIM_W - 2, Math.ceil(px + radius));
+          const minY = Math.max(1, Math.floor(py - radius));
+          const maxY = Math.min(SIM_H - 2, Math.ceil(py + radius));
+
+          for (let iy = minY; iy <= maxY; iy++) {
+            const r = iy * SIM_W;
+            const dyVal = iy - py;
+            for (let ix = minX; ix <= maxX; ix++) {
+              const dxVal = ix - px;
+              const dSq = dxVal * dxVal + dyVal * dyVal;
+              if (dSq < radius * radius) {
+                const falloff = 1 - Math.sqrt(dSq) / radius;
+                const idx = r + ix;
+                dens[idx] = Math.min(2.5, dens[idx] + falloff * 0.95);
+                u[idx] += dx * force * falloff * 0.16;
+                v[idx] += dy * force * falloff * 0.16;
+              }
+            }
+          }
         }
       }
 
@@ -666,33 +692,31 @@ const PortalRefractionCanvas: React.FC<{
     };
 
     const handleMouseLeave = () => {
+      isMouseActive = false;
       lastSimX = -100;
       lastSimY = -100;
     };
 
-    const parent = canvas.parentElement;
-    if (parent) {
-      parent.addEventListener('mousemove', handleMouseMove);
-      parent.addEventListener('mouseleave', handleMouseLeave);
-    }
-
-    let frameCount = 0;
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseleave', handleMouseLeave);
 
     const render = () => {
-      frameCount++;
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
       // Real-time resolution sync (prevents stretching during flex-grow animation)
       const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const targetW = Math.round(rect.width * dpr);
-      const targetH = Math.round(rect.height * dpr);
+      const targetW = Math.max(1, Math.round(rect.width * dpr));
+      const targetH = Math.max(1, Math.round(rect.height * dpr));
 
-      if (targetW > 0 && targetH > 0 && (canvas.width !== targetW || canvas.height !== targetH)) {
+      if (canvas.width !== targetW || canvas.height !== targetH) {
         canvas.width = targetW;
         canvas.height = targetH;
         gl.viewport(0, 0, targetW, targetH);
-        gl.uniform2f(uResolutionLoc, targetW, targetH);
       }
+      gl.uniform2f(uResolutionLoc, targetW, targetH);
 
       // Handle Crossfade animation
       let uFadeVal = 0.0;
@@ -715,11 +739,31 @@ const PortalRefractionCanvas: React.FC<{
       gl.uniform2f(uImgSize0Loc, curImg?.naturalWidth || 1920, curImg?.naturalHeight || 1080);
       gl.uniform2f(uImgSize1Loc, nxtImg?.naturalWidth || 1920, nxtImg?.naturalHeight || 1080);
 
-      // Gentle ambient liquid movement
+      // Gentle ambient liquid ripple when hovering
       if (hovered && Math.random() < 0.04) {
-        const ax = SIM_W * 0.3 + Math.random() * SIM_W * 0.4;
-        const ay = SIM_H * 0.3 + Math.random() * SIM_H * 0.4;
-        addForce(ax, ay, (Math.random() - 0.5) * 0.35, (Math.random() - 0.5) * 0.35);
+        const ax = SIM_W * 0.25 + Math.random() * SIM_W * 0.5;
+        const ay = SIM_H * 0.25 + Math.random() * SIM_H * 0.5;
+        const angle = Math.random() * Math.PI * 2;
+        const fx = Math.cos(angle) * 1.8;
+        const fy = Math.sin(angle) * 1.8;
+        const radius = 4.0;
+        const minX = Math.max(1, Math.floor(ax - radius));
+        const maxX = Math.min(SIM_W - 2, Math.ceil(ax + radius));
+        const minY = Math.max(1, Math.floor(ay - radius));
+        const maxY = Math.min(SIM_H - 2, Math.ceil(ay + radius));
+        for (let iy = minY; iy <= maxY; iy++) {
+          const r = iy * SIM_W;
+          for (let ix = minX; ix <= maxX; ix++) {
+            const dSq = (ix - ax) * (ix - ax) + (iy - ay) * (iy - ay);
+            if (dSq < radius * radius) {
+              const falloff = 1 - Math.sqrt(dSq) / radius;
+              const idx = r + ix;
+              u[idx] += fx * falloff * 0.35;
+              v[idx] += fy * falloff * 0.35;
+              dens[idx] = Math.min(2.0, dens[idx] + falloff * 0.6);
+            }
+          }
+        }
       }
 
       // Step Navier-Stokes simulation
@@ -774,10 +818,8 @@ const PortalRefractionCanvas: React.FC<{
       cancelAnimationFrame(animId);
       clearInterval(slideTimer);
       window.removeEventListener('kum-refraction-settings', handleSettingsUpdate);
-      if (parent) {
-        parent.removeEventListener('mousemove', handleMouseMove);
-        parent.removeEventListener('mouseleave', handleMouseLeave);
-      }
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseleave', handleMouseLeave);
     };
   }, [images, intervalMs, hovered]);
 
