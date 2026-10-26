@@ -296,9 +296,6 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
 // =========================================================================
 // 2. DESIGN INTERACTIVE LIQUID REFRACTION OVERLAY (Authentic WebGL Fluid Mechanics)
 // =========================================================================
-const SIM_W = 128;
-const SIM_H = 72;
-const SIM_SIZE = SIM_W * SIM_H;
 
 const VS_PORTAL = `
 attribute vec2 a_pos;
@@ -352,10 +349,19 @@ void main() {
 
   float chrom = u_chromatic * 0.45;
 
+  // Aspect-corrected displacement for image 0 without horizontal stretching
+  float imgAspect0 = max(0.01, u_imgSize0.x) / max(0.01, u_imgSize0.y);
+  vec2 coverDisp0 = disp;
+  if (screenAspect > imgAspect0) {
+    coverDisp0.y /= (screenAspect / imgAspect0);
+  } else {
+    coverDisp0.x /= (imgAspect0 / screenAspect);
+  }
+
   vec2 baseUv0 = getCoverUv(vUv, u_imgSize0);
-  vec2 uvR0 = clamp(baseUv0 + disp * (1.0 + chrom), 0.001, 0.999);
-  vec2 uvG0 = clamp(baseUv0 + disp, 0.001, 0.999);
-  vec2 uvB0 = clamp(baseUv0 + disp * (1.0 - chrom), 0.001, 0.999);
+  vec2 uvR0 = clamp(baseUv0 + coverDisp0 * (1.0 + chrom), 0.001, 0.999);
+  vec2 uvG0 = clamp(baseUv0 + coverDisp0, 0.001, 0.999);
+  vec2 uvB0 = clamp(baseUv0 + coverDisp0 * (1.0 - chrom), 0.001, 0.999);
 
   vec4 col0 = vec4(
     texture2D(u_tex0, uvR0).r,
@@ -366,10 +372,19 @@ void main() {
 
   vec4 col = col0;
   if (u_fade > 0.001) {
+    // Aspect-corrected displacement for image 1 without horizontal stretching
+    float imgAspect1 = max(0.01, u_imgSize1.x) / max(0.01, u_imgSize1.y);
+    vec2 coverDisp1 = disp;
+    if (screenAspect > imgAspect1) {
+      coverDisp1.y /= (screenAspect / imgAspect1);
+    } else {
+      coverDisp1.x /= (imgAspect1 / screenAspect);
+    }
+
     vec2 baseUv1 = getCoverUv(vUv, u_imgSize1);
-    vec2 uvR1 = clamp(baseUv1 + disp * (1.0 + chrom), 0.001, 0.999);
-    vec2 uvG1 = clamp(baseUv1 + disp, 0.001, 0.999);
-    vec2 uvB1 = clamp(baseUv1 + disp * (1.0 - chrom), 0.001, 0.999);
+    vec2 uvR1 = clamp(baseUv1 + coverDisp1 * (1.0 + chrom), 0.001, 0.999);
+    vec2 uvG1 = clamp(baseUv1 + coverDisp1, 0.001, 0.999);
+    vec2 uvB1 = clamp(baseUv1 + coverDisp1 * (1.0 - chrom), 0.001, 0.999);
 
     vec4 col1 = vec4(
       texture2D(u_tex1, uvR1).r,
@@ -478,6 +493,13 @@ const PortalRefractionCanvas: React.FC<{
     const tex0 = createTex();
     const tex1 = createTex();
 
+    // Dynamic Square-Cell Simulation Grid (Zero aspect stretching)
+    const simH = 72;
+    const initRect = canvas.getBoundingClientRect();
+    const initAspect = initRect.width > 0 && initRect.height > 0 ? initRect.width / initRect.height : 1.0;
+    let simW = Math.max(32, Math.min(256, Math.round(simH * initAspect)));
+    let simSize = simW * simH;
+
     // Fluid texture (Texture 2)
     const fluidTexture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE2);
@@ -486,9 +508,9 @@ const PortalRefractionCanvas: React.FC<{
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    const fluidData = new Uint8Array(SIM_SIZE * 4);
+    let fluidData = new Uint8Array(simSize * 4);
     fluidData.fill(128);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SIM_W, SIM_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, simW, simH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
 
     // Preload HTMLImageElements
     const imageElements: HTMLImageElement[] = [];
@@ -533,12 +555,12 @@ const PortalRefractionCanvas: React.FC<{
     }, intervalMs);
 
     // Navier-Stokes fluid buffers
-    const u = new Float32Array(SIM_SIZE);
-    const v = new Float32Array(SIM_SIZE);
-    const u_prev = new Float32Array(SIM_SIZE);
-    const v_prev = new Float32Array(SIM_SIZE);
-    const dens = new Float32Array(SIM_SIZE);
-    const dens_prev = new Float32Array(SIM_SIZE);
+    let u = new Float32Array(simSize);
+    let v = new Float32Array(simSize);
+    let u_prev = new Float32Array(simSize);
+    let v_prev = new Float32Array(simSize);
+    let dens = new Float32Array(simSize);
+    let dens_prev = new Float32Array(simSize);
 
     let lastSimX = -100;
     let lastSimY = -100;
@@ -551,18 +573,18 @@ const PortalRefractionCanvas: React.FC<{
       vy: Float32Array,
       dt: number
     ) => {
-      const dtX = dt * SIM_W;
-      const dtY = dt * SIM_H;
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const row = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      const dtX = dt * simW;
+      const dtY = dt * simH;
+      for (let y = 1; y < simH - 1; y++) {
+        const row = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = row + x;
           let px = x - dtX * vx[idx];
           let py = y - dtY * vy[idx];
           if (px < 0.5) px = 0.5;
-          else if (px > SIM_W - 1.5) px = SIM_W - 1.5;
+          else if (px > simW - 1.5) px = simW - 1.5;
           if (py < 0.5) py = 0.5;
-          else if (py > SIM_H - 1.5) py = SIM_H - 1.5;
+          else if (py > simH - 1.5) py = simH - 1.5;
 
           const x0 = px | 0;
           const x1 = x0 + 1;
@@ -571,8 +593,8 @@ const PortalRefractionCanvas: React.FC<{
 
           const sx = px - x0;
           const sy = py - y0;
-          const r0 = y0 * SIM_W;
-          const r1 = y1 * SIM_W;
+          const r0 = y0 * simW;
+          const r1 = y1 * simW;
 
           d[idx] =
             (1 - sx) * ((1 - sy) * d0[r0 + x0] + sy * d0[r1 + x0]) +
@@ -587,33 +609,33 @@ const PortalRefractionCanvas: React.FC<{
       p: Float32Array,
       div: Float32Array
     ) => {
-      const hX = 1 / SIM_W;
-      const hY = 1 / SIM_H;
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const r = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      const hX = 1 / simW;
+      const hY = 1 / simH;
+      for (let y = 1; y < simH - 1; y++) {
+        const r = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = r + x;
-          div[idx] = -0.5 * (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + SIM_W] - vy[idx - SIM_W]));
+          div[idx] = -0.5 * (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + simW] - vy[idx - simW]));
           p[idx] = 0;
         }
       }
 
       for (let iter = 0; iter < 10; iter++) {
-        for (let y = 1; y < SIM_H - 1; y++) {
-          const r = y * SIM_W;
-          for (let x = 1; x < SIM_W - 1; x++) {
+        for (let y = 1; y < simH - 1; y++) {
+          const r = y * simW;
+          for (let x = 1; x < simW - 1; x++) {
             const idx = r + x;
-            p[idx] = (div[idx] + p[idx - 1] + p[idx + 1] + p[idx - SIM_W] + p[idx + SIM_W]) * 0.25;
+            p[idx] = (div[idx] + p[idx - 1] + p[idx + 1] + p[idx - simW] + p[idx + simW]) * 0.25;
           }
         }
       }
 
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const r = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      for (let y = 1; y < simH - 1; y++) {
+        const r = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = r + x;
-          vx[idx] -= 0.5 * (p[idx + 1] - p[idx - 1]) * SIM_W;
-          vy[idx] -= 0.5 * (p[idx + SIM_W] - p[idx - SIM_W]) * SIM_H;
+          vx[idx] -= 0.5 * (p[idx + 1] - p[idx - 1]) * simW;
+          vy[idx] -= 0.5 * (p[idx + simW] - p[idx - simW]) * simH;
         }
       }
     };
@@ -636,8 +658,8 @@ const PortalRefractionCanvas: React.FC<{
         return;
       }
 
-      const simX = normX * SIM_W;
-      const simY = normY * SIM_H;
+      const simX = normX * simW;
+      const simY = normY * simH;
 
       if (!isMouseActive || lastSimX < 0) {
         lastSimX = simX;
@@ -665,12 +687,12 @@ const PortalRefractionCanvas: React.FC<{
           const py = lastSimY + stepDy * s;
 
           const minX = Math.max(1, Math.floor(px - radius));
-          const maxX = Math.min(SIM_W - 2, Math.ceil(px + radius));
+          const maxX = Math.min(simW - 2, Math.ceil(px + radius));
           const minY = Math.max(1, Math.floor(py - radius));
-          const maxY = Math.min(SIM_H - 2, Math.ceil(py + radius));
+          const maxY = Math.min(simH - 2, Math.ceil(py + radius));
 
           for (let iy = minY; iy <= maxY; iy++) {
-            const r = iy * SIM_W;
+            const r = iy * simW;
             const dyVal = iy - py;
             for (let ix = minX; ix <= maxX; ix++) {
               const dxVal = ix - px;
@@ -718,6 +740,25 @@ const PortalRefractionCanvas: React.FC<{
       }
       gl.uniform2f(uResolutionLoc, targetW, targetH);
 
+      // Square-cell aspect ratio sync
+      const curAspect = rect.width / Math.max(1, rect.height);
+      const targetSimW = Math.max(32, Math.min(256, Math.round(simH * curAspect)));
+      if (Math.abs(targetSimW - simW) >= 4) {
+        simW = targetSimW;
+        simSize = simW * simH;
+        u = new Float32Array(simSize);
+        v = new Float32Array(simSize);
+        u_prev = new Float32Array(simSize);
+        v_prev = new Float32Array(simSize);
+        dens = new Float32Array(simSize);
+        dens_prev = new Float32Array(simSize);
+        fluidData = new Uint8Array(simSize * 4);
+        fluidData.fill(128);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, fluidTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, simW, simH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+      }
+
       // Handle Crossfade animation
       let uFadeVal = 0.0;
       if (isFading) {
@@ -741,18 +782,18 @@ const PortalRefractionCanvas: React.FC<{
 
       // Gentle ambient liquid ripple when hovering
       if (hovered && Math.random() < 0.04) {
-        const ax = SIM_W * 0.25 + Math.random() * SIM_W * 0.5;
-        const ay = SIM_H * 0.25 + Math.random() * SIM_H * 0.5;
+        const ax = simW * 0.25 + Math.random() * simW * 0.5;
+        const ay = simH * 0.25 + Math.random() * simH * 0.5;
         const angle = Math.random() * Math.PI * 2;
         const fx = Math.cos(angle) * 1.8;
         const fy = Math.sin(angle) * 1.8;
         const radius = 4.0;
         const minX = Math.max(1, Math.floor(ax - radius));
-        const maxX = Math.min(SIM_W - 2, Math.ceil(ax + radius));
+        const maxX = Math.min(simW - 2, Math.ceil(ax + radius));
         const minY = Math.max(1, Math.floor(ay - radius));
-        const maxY = Math.min(SIM_H - 2, Math.ceil(ay + radius));
+        const maxY = Math.min(simH - 2, Math.ceil(ay + radius));
         for (let iy = minY; iy <= maxY; iy++) {
-          const r = iy * SIM_W;
+          const r = iy * simW;
           for (let ix = minX; ix <= maxX; ix++) {
             const dSq = (ix - ax) * (ix - ax) + (iy - ay) * (iy - ay);
             if (dSq < radius * radius) {
@@ -778,14 +819,14 @@ const PortalRefractionCanvas: React.FC<{
       project(u, v, u_prev, v_prev);
 
       const decay = currentSettings.dissipation || 0.965;
-      for (let i = 0; i < SIM_SIZE; i++) {
+      for (let i = 0; i < simSize; i++) {
         u[i] *= decay;
         v[i] *= decay;
         dens[i] *= decay;
       }
 
       // Upload fluid simulation field to Texture 2
-      for (let i = 0; i < SIM_SIZE; i++) {
+      for (let i = 0; i < simSize; i++) {
         const p = i * 4;
         fluidData[p] = Math.min(255, Math.max(0, Math.floor((u[i] + 1.0) * 127.5)));
         fluidData[p + 1] = Math.min(255, Math.max(0, Math.floor((v[i] + 1.0) * 127.5)));
@@ -794,7 +835,7 @@ const PortalRefractionCanvas: React.FC<{
       }
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, fluidTexture);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, SIM_W, SIM_H, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, simW, simH, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
 
       // Bind slide textures
       gl.activeTexture(gl.TEXTURE0);

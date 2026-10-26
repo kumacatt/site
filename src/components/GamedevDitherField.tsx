@@ -12,11 +12,6 @@ const BAYER_4X4 = [
 // Screen to canvas downscaling factor (retro pixel scale for GameDev)
 const PIXEL_SCALE = 4;
 
-// Navier-Stokes fluid simulation grid resolution
-const SIM_W = 128;
-const SIM_H = 72;
-const SIM_SIZE = SIM_W * SIM_H;
-
 export const GamedevDitherField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -44,13 +39,17 @@ export const GamedevDitherField: React.FC = () => {
     };
     window.addEventListener('kum-dither-settings', handleDitherUpdate);
 
-    // Pre-allocated Float32Array buffers for Navier-Stokes simulation
-    const u = new Float32Array(SIM_SIZE);
-    const v = new Float32Array(SIM_SIZE);
-    const u_prev = new Float32Array(SIM_SIZE);
-    const v_prev = new Float32Array(SIM_SIZE);
-    const dens = new Float32Array(SIM_SIZE);
-    const dens_prev = new Float32Array(SIM_SIZE);
+    // Aspect-ratio matching simulation grid (guarantees 100% square cells and zero horizontal stretching)
+    const simH = 72;
+    let simW = Math.max(32, Math.min(256, Math.round(simH * (window.innerWidth / Math.max(1, window.innerHeight)))));
+    let simSize = simW * simH;
+
+    let u = new Float32Array(simSize);
+    let v = new Float32Array(simSize);
+    let u_prev = new Float32Array(simSize);
+    let v_prev = new Float32Array(simSize);
+    let dens = new Float32Array(simSize);
+    let dens_prev = new Float32Array(simSize);
 
     // Mouse tracking in simulation space
     let lastSimX = -100;
@@ -58,6 +57,21 @@ export const GamedevDitherField: React.FC = () => {
     let isMouseActive = false;
 
     const resize = () => {
+      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+      const newSimW = Math.max(32, Math.min(256, Math.round(simH * aspect)));
+      const newSimSize = newSimW * simH;
+
+      if (newSimW !== simW) {
+        simW = newSimW;
+        simSize = newSimSize;
+        u = new Float32Array(simSize);
+        v = new Float32Array(simSize);
+        u_prev = new Float32Array(simSize);
+        v_prev = new Float32Array(simSize);
+        dens = new Float32Array(simSize);
+        dens_prev = new Float32Array(simSize);
+      }
+
       canvasW = Math.ceil(window.innerWidth / PIXEL_SCALE);
       canvasH = Math.ceil(window.innerHeight / PIXEL_SCALE);
       canvas.width = canvasW;
@@ -77,20 +91,20 @@ export const GamedevDitherField: React.FC = () => {
       vy: Float32Array,
       dt: number
     ) => {
-      const dtX = dt * SIM_W;
-      const dtY = dt * SIM_H;
+      const dtX = dt * simW;
+      const dtY = dt * simH;
 
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const row = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      for (let y = 1; y < simH - 1; y++) {
+        const row = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = row + x;
           let px = x - dtX * vx[idx];
           let py = y - dtY * vy[idx];
 
           if (px < 0.5) px = 0.5;
-          else if (px > SIM_W - 1.5) px = SIM_W - 1.5;
+          else if (px > simW - 1.5) px = simW - 1.5;
           if (py < 0.5) py = 0.5;
-          else if (py > SIM_H - 1.5) py = SIM_H - 1.5;
+          else if (py > simH - 1.5) py = simH - 1.5;
 
           const x0 = px | 0;
           const x1 = x0 + 1;
@@ -99,8 +113,8 @@ export const GamedevDitherField: React.FC = () => {
 
           const sx = px - x0;
           const sy = py - y0;
-          const r0 = y0 * SIM_W;
-          const r1 = y1 * SIM_W;
+          const r0 = y0 * simW;
+          const r1 = y1 * simW;
 
           d[idx] =
             (1 - sx) * ((1 - sy) * d0[r0 + x0] + sy * d0[r1 + x0]) +
@@ -116,49 +130,49 @@ export const GamedevDitherField: React.FC = () => {
       p: Float32Array,
       div: Float32Array
     ) => {
-      const hX = 1 / SIM_W;
-      const hY = 1 / SIM_H;
+      const hX = 1 / simW;
+      const hY = 1 / simH;
 
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const r = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      for (let y = 1; y < simH - 1; y++) {
+        const r = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = r + x;
           div[idx] =
             -0.5 *
-            (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + SIM_W] - vy[idx - SIM_W]));
+            (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + simW] - vy[idx - simW]));
           p[idx] = 0;
         }
       }
 
       for (let k = 0; k < 4; k++) {
-        for (let y = 1; y < SIM_H - 1; y++) {
-          const r = y * SIM_W;
-          for (let x = 1; x < SIM_W - 1; x++) {
+        for (let y = 1; y < simH - 1; y++) {
+          const r = y * simW;
+          for (let x = 1; x < simW - 1; x++) {
             p[r + x] =
               (div[r + x] +
                 p[r + x - 1] +
                 p[r + x + 1] +
-                p[r - SIM_W + x] +
-                p[r + SIM_W + x]) *
+                p[r - simW + x] +
+                p[r + simW + x]) *
               0.25;
           }
         }
       }
 
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const r = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      for (let y = 1; y < simH - 1; y++) {
+        const r = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = r + x;
           vx[idx] -= (0.5 * (p[idx + 1] - p[idx - 1])) / hX;
-          vy[idx] -= (0.5 * (p[idx + SIM_W] - p[idx - SIM_W])) / hY;
+          vy[idx] -= (0.5 * (p[idx + simW] - p[idx - simW])) / hY;
         }
       }
     };
 
-    // Mouse Injection
+    // Mouse Injection (Isotropic in physical screen space)
     const handleMouseMove = (e: MouseEvent) => {
-      const simX = (e.clientX / window.innerWidth) * SIM_W;
-      const simY = (e.clientY / window.innerHeight) * SIM_H;
+      const simX = (e.clientX / window.innerWidth) * simW;
+      const simY = (e.clientY / window.innerHeight) * simH;
 
       if (!isMouseActive || lastSimX < 0) {
         lastSimX = simX;
@@ -185,15 +199,16 @@ export const GamedevDitherField: React.FC = () => {
           const py = lastSimY + stepDy * s;
 
           const minX = Math.max(1, Math.floor(px - radius));
-          const maxX = Math.min(SIM_W - 2, Math.ceil(px + radius));
+          const maxX = Math.min(simW - 2, Math.ceil(px + radius));
           const minY = Math.max(1, Math.floor(py - radius));
-          const maxY = Math.min(SIM_H - 2, Math.ceil(py + radius));
+          const maxY = Math.min(simH - 2, Math.ceil(py + radius));
 
           for (let iy = minY; iy <= maxY; iy++) {
-            const r = iy * SIM_W;
+            const r = iy * simW;
             const dyVal = iy - py;
             for (let ix = minX; ix <= maxX; ix++) {
               const dxVal = ix - px;
+              // True Euclidean circular distance in square grid cells
               const dSq = dxVal * dxVal + dyVal * dyVal;
               if (dSq < radius * radius) {
                 const falloff = 1 - Math.sqrt(dSq) / radius;
@@ -240,7 +255,7 @@ export const GamedevDitherField: React.FC = () => {
       advect(dens, dens_prev, u, v, dt);
 
       const dissipation = currentSettings.dissipation;
-      for (let i = 0; i < SIM_SIZE; i++) {
+      for (let i = 0; i < simSize; i++) {
         dens[i] *= dissipation;
         u[i] *= 0.965;
         v[i] *= 0.965;
@@ -248,8 +263,9 @@ export const GamedevDitherField: React.FC = () => {
 
       buf32.fill(0);
 
-      const simScaleX = (SIM_W - 1) / canvasW;
-      const simScaleY = (SIM_H - 1) / canvasH;
+      // Isotropic sampling mapping
+      const simScaleX = (simW - 1) / canvasW;
+      const simScaleY = (simH - 1) / canvasH;
 
       for (let cy = 0; cy < canvasH; cy++) {
         const by = cy % 4;
@@ -258,17 +274,17 @@ export const GamedevDitherField: React.FC = () => {
 
         const simYFloat = cy * simScaleY;
         const simY0 = simYFloat | 0;
-        const simY1 = simY0 + 1;
+        const simY1 = Math.min(simH - 1, simY0 + 1);
         const fracY = simYFloat - simY0;
-        const r0 = simY0 * SIM_W;
-        const r1 = simY1 * SIM_W;
+        const r0 = simY0 * simW;
+        const r1 = simY1 * simW;
 
         for (let cx = 0; cx < canvasW; cx++) {
           let pixel = 0;
 
           const simXFloat = cx * simScaleX;
           const simX0 = simXFloat | 0;
-          const simX1 = simX0 + 1;
+          const simX1 = Math.min(simW - 1, simX0 + 1);
           const fracX = simXFloat - simX0;
 
           const d00 = dens[r0 + simX0];

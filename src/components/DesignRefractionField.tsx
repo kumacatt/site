@@ -1,11 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { loadRefractionSettings, RefractionSettings } from './DitherTuner';
 
-// Navier-Stokes fluid simulation grid resolution
-const SIM_W = 128;
-const SIM_H = 72;
-const SIM_SIZE = SIM_W * SIM_H;
-
 // Vertex Shader: full-screen quad
 const VS_SOURCE = `
 attribute vec2 a_pos;
@@ -58,16 +53,26 @@ void main() {
     return;
   }
 
-  // 3. Aspect-corrected displacement vector
+  // 3. Aspect-corrected displacement vector (physical isotropic screen pixels)
   vec2 disp = vel * (u_distortion * 0.0014);
   disp.x /= screenAspect;
+
+  // Convert screen displacement to coverUv displacement without aspect stretching
+  vec2 coverDisp = disp;
+  if (screenAspect > videoAspect) {
+    float scale = screenAspect / videoAspect;
+    coverDisp.y /= scale;
+  } else {
+    float scale = videoAspect / screenAspect;
+    coverDisp.x /= scale;
+  }
 
   // 4. Chromatic dispersion (prism Red/Blue split)
   // Scaled by 0.40 so rainbow fringes are vividly and beautifully visible
   float chrom = u_chromatic * 0.40;
-  vec2 uvR = clamp(coverUv + disp * (1.0 + chrom), 0.001, 0.999);
-  vec2 uvG = clamp(coverUv + disp, 0.001, 0.999);
-  vec2 uvB = clamp(coverUv + disp * (1.0 - chrom), 0.001, 0.999);
+  vec2 uvR = clamp(coverUv + coverDisp * (1.0 + chrom), 0.001, 0.999);
+  vec2 uvG = clamp(coverUv + coverDisp, 0.001, 0.999);
+  vec2 uvB = clamp(coverUv + coverDisp * (1.0 - chrom), 0.001, 0.999);
 
   float r = texture2D(u_video, uvR).r;
   float g = texture2D(u_video, uvG).g;
@@ -167,7 +172,12 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
     // Initialize with a dark fallback
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([10, 8, 14, 255]));
 
-    // Fluid Texture (Texture 1) - 128x72 RGBA
+    // Aspect-ratio matching simulation grid (guarantees 100% square cells and zero horizontal stretching)
+    const simH = 72;
+    let simW = Math.max(32, Math.min(256, Math.round(simH * (window.innerWidth / Math.max(1, window.innerHeight)))));
+    let simSize = simW * simH;
+
+    // Fluid Texture (Texture 1) - square cell RGBA
     const fluidTexture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, fluidTexture);
@@ -175,9 +185,9 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    const fluidData = new Uint8Array(SIM_SIZE * 4);
+    let fluidData = new Uint8Array(simSize * 4);
     fluidData.fill(128); // neutral 0 velocity
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SIM_W, SIM_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, simW, simH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
 
     // Canvas Resize (Native DPI for razor-sharp 1080p/4K rendering)
     const resize = () => {
@@ -189,18 +199,39 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
         canvas.height = h;
         gl.viewport(0, 0, w, h);
       }
+
+      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+      const newSimW = Math.max(32, Math.min(256, Math.round(simH * aspect)));
+      const newSimSize = newSimW * simH;
+
+      if (newSimW !== simW) {
+        simW = newSimW;
+        simSize = newSimSize;
+        u = new Float32Array(simSize);
+        v = new Float32Array(simSize);
+        u_prev = new Float32Array(simSize);
+        v_prev = new Float32Array(simSize);
+        dens = new Float32Array(simSize);
+        dens_prev = new Float32Array(simSize);
+        fluidData = new Uint8Array(simSize * 4);
+        fluidData.fill(128);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, fluidTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, simW, simH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+      }
     };
 
     resize();
     window.addEventListener('resize', resize);
 
     // Navier-Stokes fluid simulation buffers
-    const u = new Float32Array(SIM_SIZE);
-    const v = new Float32Array(SIM_SIZE);
-    const u_prev = new Float32Array(SIM_SIZE);
-    const v_prev = new Float32Array(SIM_SIZE);
-    const dens = new Float32Array(SIM_SIZE);
-    const dens_prev = new Float32Array(SIM_SIZE);
+    let u = new Float32Array(simSize);
+    let v = new Float32Array(simSize);
+    let u_prev = new Float32Array(simSize);
+    let v_prev = new Float32Array(simSize);
+    let dens = new Float32Array(simSize);
+    let dens_prev = new Float32Array(simSize);
 
     let lastSimX = -100;
     let lastSimY = -100;
@@ -214,20 +245,20 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
       vy: Float32Array,
       dt: number
     ) => {
-      const dtX = dt * SIM_W;
-      const dtY = dt * SIM_H;
+      const dtX = dt * simW;
+      const dtY = dt * simH;
 
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const row = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      for (let y = 1; y < simH - 1; y++) {
+        const row = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = row + x;
           let px = x - dtX * vx[idx];
           let py = y - dtY * vy[idx];
 
           if (px < 0.5) px = 0.5;
-          else if (px > SIM_W - 1.5) px = SIM_W - 1.5;
+          else if (px > simW - 1.5) px = simW - 1.5;
           if (py < 0.5) py = 0.5;
-          else if (py > SIM_H - 1.5) py = SIM_H - 1.5;
+          else if (py > simH - 1.5) py = simH - 1.5;
 
           const x0 = px | 0;
           const x1 = x0 + 1;
@@ -236,8 +267,8 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
 
           const sx = px - x0;
           const sy = py - y0;
-          const r0 = y0 * SIM_W;
-          const r1 = y1 * SIM_W;
+          const r0 = y0 * simW;
+          const r1 = y1 * simW;
 
           d[idx] =
             (1 - sx) * ((1 - sy) * d0[r0 + x0] + sy * d0[r1 + x0]) +
@@ -253,49 +284,49 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
       p: Float32Array,
       div: Float32Array
     ) => {
-      const hX = 1 / SIM_W;
-      const hY = 1 / SIM_H;
+      const hX = 1 / simW;
+      const hY = 1 / simH;
 
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const r = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      for (let y = 1; y < simH - 1; y++) {
+        const r = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = r + x;
           div[idx] =
             -0.5 *
-            (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + SIM_W] - vy[idx - SIM_W]));
+            (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + simW] - vy[idx - simW]));
           p[idx] = 0;
         }
       }
 
       for (let k = 0; k < 4; k++) {
-        for (let y = 1; y < SIM_H - 1; y++) {
-          const r = y * SIM_W;
-          for (let x = 1; x < SIM_W - 1; x++) {
+        for (let y = 1; y < simH - 1; y++) {
+          const r = y * simW;
+          for (let x = 1; x < simW - 1; x++) {
             p[r + x] =
               (div[r + x] +
                 p[r + x - 1] +
                 p[r + x + 1] +
-                p[r - SIM_W + x] +
-                p[r + SIM_W + x]) *
+                p[r - simW + x] +
+                p[r + simW + x]) *
               0.25;
           }
         }
       }
 
-      for (let y = 1; y < SIM_H - 1; y++) {
-        const r = y * SIM_W;
-        for (let x = 1; x < SIM_W - 1; x++) {
+      for (let y = 1; y < simH - 1; y++) {
+        const r = y * simW;
+        for (let x = 1; x < simW - 1; x++) {
           const idx = r + x;
           vx[idx] -= (0.5 * (p[idx + 1] - p[idx - 1])) / hX;
-          vy[idx] -= (0.5 * (p[idx + SIM_W] - p[idx - SIM_W])) / hY;
+          vy[idx] -= (0.5 * (p[idx + simW] - p[idx - simW])) / hY;
         }
       }
     };
 
-    // Mouse Movement
+    // Mouse Movement (Isotropic physical screen coordinates)
     const handleMouseMove = (e: MouseEvent) => {
-      const simX = (e.clientX / window.innerWidth) * SIM_W;
-      const simY = (e.clientY / window.innerHeight) * SIM_H;
+      const simX = (e.clientX / window.innerWidth) * simW;
+      const simY = (e.clientY / window.innerHeight) * simH;
 
       if (!isMouseActive || lastSimX < 0) {
         lastSimX = simX;
@@ -322,15 +353,16 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
           const py = lastSimY + stepDy * s;
 
           const minX = Math.max(1, Math.floor(px - radius));
-          const maxX = Math.min(SIM_W - 2, Math.ceil(px + radius));
+          const maxX = Math.min(simW - 2, Math.ceil(px + radius));
           const minY = Math.max(1, Math.floor(py - radius));
-          const maxY = Math.min(SIM_H - 2, Math.ceil(py + radius));
+          const maxY = Math.min(simH - 2, Math.ceil(py + radius));
 
           for (let iy = minY; iy <= maxY; iy++) {
-            const r = iy * SIM_W;
+            const r = iy * simW;
             const dyVal = iy - py;
             for (let ix = minX; ix <= maxX; ix++) {
               const dxVal = ix - px;
+              // True Euclidean circular distance in square grid cells
               const dSq = dxVal * dxVal + dyVal * dyVal;
               if (dSq < radius * radius) {
                 const falloff = 1 - Math.sqrt(dSq) / radius;
@@ -373,14 +405,14 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
 
       // Dissipation from settings
       const dissipation = currentSettings.dissipation;
-      for (let i = 0; i < SIM_SIZE; i++) {
+      for (let i = 0; i < simSize; i++) {
         dens[i] *= dissipation;
         u[i] *= 0.965;
         v[i] *= 0.965;
       }
 
-      // 2. Pack Simulation into 128x72 Texture Buffer
-      for (let i = 0; i < SIM_SIZE; i++) {
+      // 2. Pack Simulation into Texture Buffer
+      for (let i = 0; i < simSize; i++) {
         const o = i * 4;
         fluidData[o] = Math.max(0, Math.min(255, Math.round(128 + u[i] * 42)));
         fluidData[o + 1] = Math.max(0, Math.min(255, Math.round(128 + v[i] * 42)));
@@ -391,7 +423,7 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
       // Upload fluid texture with hardware bilinear filtering
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, fluidTexture);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, SIM_W, SIM_H, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, simW, simH, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
 
       // 3. Upload Native Video Texture directly to GPU
       const video = videoRef.current;
