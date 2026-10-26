@@ -345,14 +345,49 @@ void main() {
   float speed = length(vel);
 
   float screenAspect = max(0.01, u_resolution.x) / max(0.01, u_resolution.y);
-  vec2 disp = vel * (u_distortion * 0.0020);
-  disp.x /= screenAspect;
 
-  float chrom = u_chromatic * 0.35;
+  // 1. Fluid Velocity Displacement
+  vec2 fluidDisp = vel * (u_distortion * 0.0024);
+  fluidDisp.x /= screenAspect;
 
-  // Aspect-corrected displacement for image 0 without horizontal stretching
+  float chrom = u_chromatic * 0.45;
+
+  // 2. Optical Glass Fluted Stripe Refraction (The stripes strongly distort the picture!)
+  vec2 domCoord = vec2(vUv.x, 1.0 - vUv.y) * u_resolution;
+  vec2 mousePixel = u_mouse * u_resolution;
+
+  // Phase of the angled moving stripes (identical ~7 degree angle: cx * 0.07 + cy * 0.014 in 3px units)
+  float stripePhase = (domCoord.x * 0.0233333 + domCoord.y * 0.0046666) - u_time * 1.4;
+
+  // Fluid velocity and ripples dynamically warp the stripe refraction wave
+  stripePhase += (vel.x * 3.5 + vel.y * 2.0) + density * 7.0;
+
+  // Normal vector perpendicular to the stripes
+  vec2 stripeNormal = normalize(vec2(0.07, 0.014));
+  stripeNormal.x /= screenAspect;
+
+  // Optical slope (derivative of the fluted glass surface)
+  float stripeWave = sin(stripePhase);
+  float stripeSlope = cos(stripePhase);
+
+  // Mouse excitation: when cursor is near, the stripe distortion strongly intensifies
+  float mouseDist = length(domCoord - mousePixel);
+  float mouseExcitation = 0.0;
+  if (u_mouseActive > 0.5 && mouseDist < 320.0) {
+    float falloff = 1.0 - mouseDist / 320.0;
+    mouseExcitation = falloff * falloff * 1.8;
+  }
+
+  // Strong optical stripe displacement factor (calibrated for prominent fluted glass refraction)
+  float stripeDistortPower = (0.018 + mouseExcitation * 0.028 + speed * 0.016) * (u_distortion / 60.0);
+  vec2 stripeDisp = stripeNormal * (stripeSlope * stripeDistortPower);
+
+  // Combined total displacement (fluid motion + moving fluted stripes)
+  vec2 totalDisp = fluidDisp + stripeDisp;
+
+  // Aspect-corrected displacement for image 0
   float imgAspect0 = max(0.01, u_imgSize0.x) / max(0.01, u_imgSize0.y);
-  vec2 coverDisp0 = disp;
+  vec2 coverDisp0 = totalDisp;
   if (screenAspect > imgAspect0) {
     coverDisp0.y /= (screenAspect / imgAspect0);
   } else {
@@ -373,9 +408,8 @@ void main() {
 
   vec4 col = col0;
   if (u_fade > 0.001) {
-    // Aspect-corrected displacement for image 1 without horizontal stretching
     float imgAspect1 = max(0.01, u_imgSize1.x) / max(0.01, u_imgSize1.y);
-    vec2 coverDisp1 = disp;
+    vec2 coverDisp1 = totalDisp;
     if (screenAspect > imgAspect1) {
       coverDisp1.y /= (screenAspect / imgAspect1);
     } else {
@@ -396,72 +430,10 @@ void main() {
     col = mix(col0, col1, u_fade);
   }
 
-  // =========================================================================
-  // SUBTLE TRANSLUCENT LIQUID-REFRACTED STRIPES (CLEAR ARTWORK VISIBILITY)
-  // =========================================================================
-  float effectiveGlow = max(0.04, u_glow * 0.35);
-  if (effectiveGlow > 0.005) {
-    // Top-left origin DOM space (identical to GameDev and cursor mouse coordinates)
-    vec2 domCoord = vec2(vUv.x, 1.0 - vUv.y) * u_resolution;
-    vec2 mousePixel = u_mouse * u_resolution;
-
-    // Pronounced fluid displacement on the stripe lines
-    vec2 stripeDisplacement = vel * (u_distortion * 1.8) + vec2(cos(density * 15.0), sin(density * 15.0)) * (density * 30.0);
-    vec2 distortedCoord = domCoord + stripeDisplacement;
-
-    // Exact same ~7-degree angled moving wave equation (cx * 0.07 + cy * 0.014 in 3px units)
-    float phaseBase = (distortedCoord.x * 0.0233333 + distortedCoord.y * 0.0046666) - u_time * 1.4;
-
-    // Chromatic dispersion through the refracted stripes
-    float chromDisp = u_chromatic * 0.35;
-    float phaseR = phaseBase + disp.x * u_resolution.x * 0.006 * (1.0 + chromDisp);
-    float phaseG = phaseBase + disp.x * u_resolution.x * 0.006;
-    float phaseB = phaseBase + disp.x * u_resolution.x * 0.006 * (1.0 - chromDisp);
-
-    // Smooth, silky non-dithered stripe profiles
-    float waveR = sin(phaseR);
-    float waveG = sin(phaseG);
-    float waveB = sin(phaseB);
-
-    // Soft luminous stripe profile (pow creates elegant, smooth anti-aliased beam edges)
-    float stripeProfileR = pow(max(0.0, waveR * 0.5 + 0.5), 3.0);
-    float stripeProfileG = pow(max(0.0, waveG * 0.5 + 0.5), 3.0);
-    float stripeProfileB = pow(max(0.0, waveB * 0.5 + 0.5), 3.0);
-
-    float baseStripe = stripeProfileG;
-
-    // Mouse excitation: gentle glow under cursor (pinpoint 1:1, non-inverted)
-    float mouseGlow = 0.0;
-    if (u_mouseActive > 0.5) {
-      float dist = length(domCoord - mousePixel);
-      float radius = 260.0;
-      if (dist < radius) {
-        float falloff = 1.0 - dist / radius;
-        mouseGlow = falloff * falloff;
-      }
-    }
-
-    // Dynamic wave response from fluid
-    float fluidExcitation = (speed * 0.6 + density * 0.4) * 0.35;
-
-    float intensity = (baseStripe * 0.40 + mouseGlow * 0.50 + fluidExcitation) * effectiveGlow;
-
-    if (intensity > 0.002) {
-      // Atmospheric Electric Lilac / Violet Hue (Soft and translucent, never blown out to white)
-      vec3 deepPurple = vec3(0.58, 0.22, 0.92);
-      vec3 softLilac = vec3(0.82, 0.60, 1.00);
-
-      // Chromatic RGB tint
-      vec3 stripeRgb = vec3(stripeProfileR * 0.70 + stripeProfileG * 0.30, 
-                            stripeProfileG * 0.50 + stripeProfileB * 0.30, 
-                            stripeProfileB * 0.95);
-
-      vec3 finalStripeColor = mix(deepPurple * stripeRgb, softLilac, mouseGlow * 0.45);
-
-      // Delicate additive sheen: keeps the background artwork and its liquid refraction 100% visible!
-      col.rgb += finalStripeColor * (intensity * 0.42);
-    }
-  }
+  // Refined, subtle holographic glass sheen along the stripe crests (never blinding or opaque)
+  float crest = pow(max(0.0, stripeWave * 0.5 + 0.5), 3.5);
+  vec3 glassSheen = vec3(0.65, 0.35, 1.00) * (crest * (0.07 + mouseExcitation * 0.12));
+  col.rgb += glassSheen;
 
   // Glossy specular water sheen
   float slope = speed * 1.6 + density * 0.5;
@@ -924,33 +896,6 @@ const PortalRefractionCanvas: React.FC<{
       const nxtImg = imageElements[nextIdx];
       gl.uniform2f(uImgSize0Loc, curImg?.naturalWidth || 1920, curImg?.naturalHeight || 1080);
       gl.uniform2f(uImgSize1Loc, nxtImg?.naturalWidth || 1920, nxtImg?.naturalHeight || 1080);
-
-      // Gentle ambient liquid ripple when hovering
-      if (hoveredRef.current && Math.random() < 0.015) {
-        const ax = simW * 0.25 + Math.random() * simW * 0.5;
-        const ay = simH * 0.25 + Math.random() * simH * 0.5;
-        const angle = Math.random() * Math.PI * 2;
-        const fx = Math.cos(angle) * 1.0;
-        const fy = Math.sin(angle) * 1.0;
-        const radius = 2.5;
-        const minX = Math.max(1, Math.floor(ax - radius));
-        const maxX = Math.min(simW - 2, Math.ceil(ax + radius));
-        const minY = Math.max(1, Math.floor(ay - radius));
-        const maxY = Math.min(simH - 2, Math.ceil(ay + radius));
-        for (let iy = minY; iy <= maxY; iy++) {
-          const r = iy * simW;
-          for (let ix = minX; ix <= maxX; ix++) {
-            const dSq = (ix - ax) * (ix - ax) + (iy - ay) * (iy - ay);
-            if (dSq < radius * radius) {
-              const falloff = 1 - Math.sqrt(dSq) / radius;
-              const idx = r + ix;
-              u[idx] += fx * falloff * 0.20;
-              v[idx] += fy * falloff * 0.20;
-              dens[idx] = Math.min(1.2, dens[idx] + falloff * 0.35);
-            }
-          }
-        }
-      }
 
       // Step Navier-Stokes simulation
       u_prev.set(u);
