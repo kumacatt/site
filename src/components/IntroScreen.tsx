@@ -188,10 +188,10 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
         const by = (node.y / window.innerHeight) * bH;
         const brad = (node.radius / window.innerWidth) * bW;
 
-        // Controlled subtle alpha so background stays deep and dark
+        // Controlled subtle alpha so background stays deep, moody, and dark
         const grad = blurCtx.createRadialGradient(bx, by, 0, bx, by, brad);
-        grad.addColorStop(0, `rgba(${node.r}, ${node.g}, ${node.b}, 0.28)`);
-        grad.addColorStop(0.6, `rgba(${node.r}, ${node.g}, ${node.b}, 0.08)`);
+        grad.addColorStop(0, `rgba(${node.r}, ${node.g}, ${node.b}, 0.12)`);
+        grad.addColorStop(0.5, `rgba(${node.r}, ${node.g}, ${node.b}, 0.03)`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         blurCtx.fillStyle = grad;
@@ -238,7 +238,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
             if (dSq < node.radSq) {
               const falloff = 1.0 - Math.sqrt(dSq) / node.rad;
               const weight = falloff * falloff;
-              totalIntensity += weight * 0.42; // Subtle restrained intensity
+              totalIntensity += weight * 0.16; // Restrained moody intensity
               accR += node.r * weight;
               accG += node.g * weight;
               accB += node.b * weight;
@@ -250,19 +250,19 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
             const mdx = cx - mouseScaleX;
             const mdy = cy - mouseScaleY;
             const mDist = Math.hypot(mdx, mdy);
-            const mRadius = 120;
+            const mRadius = 110;
             if (mDist < mRadius) {
-              const mGlow = Math.pow(1.0 - mDist / mRadius, 1.8);
-              totalIntensity += mGlow * 0.75;
+              const mGlow = Math.pow(1.0 - mDist / mRadius, 2.0);
+              totalIntensity += mGlow * 0.35;
               accR += 245 * mGlow;
               accG += 180 * mGlow;
               accB += 40 * mGlow;
             }
           }
 
-          // Breathing stardust
-          const idleWave = Math.sin(frame * 0.02 + (cx * 0.08 + cy * 0.08)) * 0.02;
-          totalIntensity += 0.03 + idleWave;
+          // Breathing stardust (subtle, delicate)
+          const idleWave = Math.sin(frame * 0.02 + (cx * 0.08 + cy * 0.08)) * 0.015;
+          totalIntensity += 0.012 + idleWave;
 
           if (exitProgress > 0) {
             totalIntensity -= exitProgress * 1.5;
@@ -272,12 +272,12 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
 
           // Extremely subtle resting dot (1 per 16 pixels, barely visible stardust)
           if (bRow[cx % 4] === 0 && exitProgress === 0) {
-            pixel = makeColor(255, 255, 255, 7);
+            pixel = makeColor(255, 255, 255, 5);
           }
 
           if (totalIntensity > 0.025) {
             const normalizedIntensity = Math.min(1.0, totalIntensity);
-            const shaped = Math.pow(normalizedIntensity, 1.5);
+            const shaped = Math.pow(normalizedIntensity, 1.6);
 
             if (shaped > bayerThresh) {
               const avgR = totalIntensity > 0.01 ? Math.min(255, Math.round(accR / totalIntensity)) : 255;
@@ -288,12 +288,12 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
               let finalG = avgG;
               let finalB = avgB;
               if (shaped > 0.7) {
-                finalR = Math.min(255, avgR + 40);
-                finalG = Math.min(255, avgG + 30);
-                finalB = Math.min(255, avgB + 20);
+                finalR = Math.min(255, avgR + 30);
+                finalG = Math.min(255, avgG + 20);
+                finalB = Math.min(255, avgB + 15);
               }
 
-              const alpha = Math.min(210, Math.floor(45 + shaped * 165));
+              const alpha = Math.min(170, Math.floor(30 + shaped * 135));
               pixel = makeColor(finalR, finalG, finalB, alpha);
             }
           }
@@ -331,24 +331,24 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
       onClick={handleProceed}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-between p-8 sm:p-14 bg-[#050508] text-white cursor-pointer select-none transition-all duration-700 ease-out overflow-hidden ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-between p-8 sm:p-14 bg-[#030305] text-white cursor-pointer select-none transition-all duration-700 ease-out overflow-hidden ${
         isFading ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
-      {/* 1. Atmospheric Soft Blur Glow (48px Smooth Blur behind everything) */}
+      {/* 1. Atmospheric Soft Blur Glow (Controlled, deep subtle glow behind void) */}
       <canvas
         ref={blurCanvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none z-0 filter blur-[48px] opacity-65"
+        className="absolute inset-0 w-full h-full pointer-events-none z-0 filter blur-[56px] opacity-25"
         aria-hidden="true"
       />
 
       {/* 2. Deep Moody Dark Vignette */}
-      <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#050508]/40 to-[#050508]/90 pointer-events-none z-[1]" />
+      <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#030305]/60 to-[#030305]/95 pointer-events-none z-[1]" />
 
       {/* 3. Retro Bayer Dither Matrix Stardust Overlay */}
       <canvas
         ref={ditherCanvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none z-[15] opacity-90 mix-blend-screen"
+        className="absolute inset-0 w-full h-full pointer-events-none z-[15] opacity-60 mix-blend-screen"
         style={{
           imageRendering: 'pixelated',
         }}
@@ -372,10 +372,6 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
 
         <p className="relative text-base sm:text-2xl font-mono text-white/85 tracking-wide font-light drop-shadow">
           {t.roles[lang]}
-        </p>
-
-        <p className="relative text-xs sm:text-sm font-mono text-white/50 max-w-md pt-2 leading-relaxed drop-shadow">
-          {t.tagline[lang]}
         </p>
       </div>
 

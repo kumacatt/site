@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
 import { getAssetUrl } from '../utils/asset';
+import { loadRefractionSettings, RefractionSettings } from './DitherTuner';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -125,11 +126,15 @@ const PortalSlideLayer: React.FC<{
 };
 
 // =========================================================================
-// 1. GAMEDEV INTERACTIVE BAYER DITHER OVERLAY (Tactile Cyber-Analog Energy)
+// 1. GAMEDEV INTERACTIVE BAYER DITHER OVERLAY (Tactile Angled Matrix Energy)
 // =========================================================================
 const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef<{ x: number; y: number; active: boolean }>({ x: -100, y: -100, active: false });
+  const mouseRef = useRef<{ normX: number; normY: number; active: boolean }>({
+    normX: -100,
+    normY: -100,
+    active: false,
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -149,28 +154,35 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
     let currentGlow = 0;
     let ripplePhase = 0;
 
-    const resize = () => {
+    // Dynamically synchronize canvas size with container (eliminating flex-transition stretching)
+    const syncCanvasSize = () => {
       const rect = canvas.getBoundingClientRect();
-      w = Math.ceil(rect.width / PIXEL_SCALE);
-      h = Math.ceil(rect.height / PIXEL_SCALE);
-      canvas.width = w;
-      canvas.height = h;
-      imageData = ctx.createImageData(w, h);
-      buf32 = new Uint32Array(imageData.data.buffer);
+      const targetW = Math.ceil(rect.width / PIXEL_SCALE);
+      const targetH = Math.ceil(rect.height / PIXEL_SCALE);
+      if (targetW > 0 && targetH > 0 && (canvas.width !== targetW || canvas.height !== targetH)) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        w = targetW;
+        h = targetH;
+        imageData = ctx.createImageData(w, h);
+        buf32 = new Uint32Array(imageData.data.buffer);
+      }
     };
 
-    resize();
-    window.addEventListener('resize', resize);
+    syncCanvasSize();
 
     const makeColor = (r: number, g: number, b: number, a: number) => {
       return (a << 24) | (b << 16) | (g << 8) | r;
     };
 
+    // Normalized mouse coordinates ensure 1:1 pinpoint cursor tracking across all screen sizes
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      mouseRef.current.x = (e.clientX - rect.left) / PIXEL_SCALE;
-      mouseRef.current.y = (e.clientY - rect.top) / PIXEL_SCALE;
-      mouseRef.current.active = true;
+      if (rect.width > 0 && rect.height > 0) {
+        mouseRef.current.normX = (e.clientX - rect.left) / rect.width;
+        mouseRef.current.normY = (e.clientY - rect.top) / rect.height;
+        mouseRef.current.active = true;
+      }
     };
 
     const handleMouseLeave = () => {
@@ -184,11 +196,13 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
     }
 
     const render = () => {
+      syncCanvasSize();
+
       targetGlow = active ? 1.0 : 0.0;
       currentGlow += (targetGlow - currentGlow) * 0.08;
-      ripplePhase += 0.04;
+      ripplePhase += 0.035;
 
-      if (!buf32 || !imageData) {
+      if (!buf32 || !imageData || w === 0 || h === 0) {
         animId = requestAnimationFrame(render);
         return;
       }
@@ -202,9 +216,9 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
 
       buf32.fill(0);
 
-      const mx = mouseRef.current.x;
-      const my = mouseRef.current.y;
-      const mActive = mouseRef.current.active;
+      const mx = mouseRef.current.normX * w;
+      const my = mouseRef.current.normY * h;
+      const mActive = mouseRef.current.active && active;
 
       for (let cy = 0; cy < h; cy++) {
         const by = cy % 4;
@@ -213,36 +227,35 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
 
         for (let cx = 0; cx < w; cx++) {
           const bayerThresh = bRow[cx % 4] / 16.0;
-          let intensity = 0;
 
-          // Mouse spotlight in Bayer matrix
+          // Wave equation: ~7 degree angled moving raster stripes (loved by user)
+          const stripeWave = Math.sin((cx * 0.07 + cy * 0.014) - ripplePhase * 1.4);
+
+          // Moving raster stripes baseline
+          let intensity = Math.max(0, stripeWave * 0.16 + 0.04) * currentGlow;
+
+          // Mouse excitation: NO CIRCLES! Directly energizes and sharpens the stripes under cursor
           if (mActive) {
             const dx = cx - mx;
             const dy = cy - my;
             const dist = Math.hypot(dx, dy);
-            const radius = 110;
+            const radius = 95;
             if (dist < radius) {
               const falloff = 1.0 - dist / radius;
-              // Concentric ripple rings
-              const ripple = Math.sin(dist * 0.15 - ripplePhase * 2.0) * 0.15;
-              intensity += Math.pow(Math.max(0, falloff + ripple), 1.6) * 1.1 * currentGlow;
+              const smoothFalloff = falloff * falloff;
+              intensity += (stripeWave * 0.45 + 0.55) * smoothFalloff * 0.95 * currentGlow;
             }
           }
 
-          // Subtle idle breathing grid
-          const ambient = Math.sin(ripplePhase + (cx * 0.06 + cy * 0.06)) * 0.03 * currentGlow;
-          intensity += ambient;
-
           let pixel = 0;
           if (intensity > 0.02) {
-            const shaped = Math.pow(Math.min(1.0, intensity), 1.3);
+            const shaped = Math.pow(Math.min(1.0, intensity), 1.25);
             if (shaped > bayerThresh) {
-              // Warm amber to golden core
-              const isCore = shaped > 0.65;
+              const isCore = shaped > 0.6;
               const r = isCore ? 253 : 245;
               const g = isCore ? 224 : 158;
               const b = isCore ? 71 : 11;
-              const alpha = Math.min(235, Math.floor(60 + shaped * 175));
+              const alpha = Math.min(235, Math.floor(50 + shaped * 185));
               pixel = makeColor(r, g, b, alpha);
             }
           }
@@ -261,7 +274,6 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
 
     return () => {
       cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
       if (parent) {
         parent.removeEventListener('mousemove', handleMouseMove);
         parent.removeEventListener('mouseleave', handleMouseLeave);
@@ -282,76 +294,380 @@ const PortalDitherCanvas: React.FC<{ active: boolean }> = ({ active }) => {
 };
 
 // =========================================================================
-// 2. DESIGN INTERACTIVE LIQUID REFRACTION OVERLAY (Silky Optical Glass Caustics)
+// 2. DESIGN INTERACTIVE LIQUID REFRACTION OVERLAY (Authentic WebGL Fluid Mechanics)
 // =========================================================================
-const PortalRefractionCanvas: React.FC<{ active: boolean }> = ({ active }) => {
+const SIM_W = 128;
+const SIM_H = 72;
+const SIM_SIZE = SIM_W * SIM_H;
+
+const VS_PORTAL = `
+attribute vec2 a_pos;
+varying vec2 vUv;
+void main() {
+  vUv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}
+`;
+
+const FS_PORTAL = `
+precision highp float;
+varying vec2 vUv;
+
+uniform sampler2D u_tex0;
+uniform sampler2D u_tex1;
+uniform sampler2D u_fluid;
+uniform float u_fade;
+uniform float u_distortion;
+uniform float u_chromatic;
+uniform float u_specular;
+uniform vec2 u_resolution;
+uniform vec2 u_imgSize0;
+uniform vec2 u_imgSize1;
+
+vec2 getCoverUv(vec2 uv, vec2 imgSize) {
+  vec2 cUv = uv;
+  float screenAspect = u_resolution.x / u_resolution.y;
+  float imgAspect = imgSize.x / imgSize.y;
+  if (screenAspect > imgAspect) {
+    float scale = screenAspect / imgAspect;
+    cUv.y = (cUv.y - 0.5) / scale + 0.5;
+  } else {
+    float scale = imgAspect / screenAspect;
+    cUv.x = (cUv.x - 0.5) / scale + 0.5;
+  }
+  cUv.y = 1.0 - cUv.y;
+  return cUv;
+}
+
+void main() {
+  vec2 fluidUv = vec2(vUv.x, 1.0 - vUv.y);
+  vec4 fluid = texture2D(u_fluid, fluidUv);
+  vec2 vel = (fluid.rg - 0.5) * 2.0;
+  float density = fluid.b;
+  float speed = length(vel);
+
+  float screenAspect = u_resolution.x / u_resolution.y;
+  vec2 disp = vel * (u_distortion * 0.0014);
+  disp.x /= screenAspect;
+
+  float chrom = u_chromatic * 0.40;
+
+  vec2 baseUv0 = getCoverUv(vUv, u_imgSize0);
+  vec2 uvR0 = clamp(baseUv0 + disp * (1.0 + chrom), 0.001, 0.999);
+  vec2 uvG0 = clamp(baseUv0 + disp, 0.001, 0.999);
+  vec2 uvB0 = clamp(baseUv0 + disp * (1.0 - chrom), 0.001, 0.999);
+
+  vec4 col0 = vec4(
+    texture2D(u_tex0, uvR0).r,
+    texture2D(u_tex0, uvG0).g,
+    texture2D(u_tex0, uvB0).b,
+    1.0
+  );
+
+  vec4 col = col0;
+  if (u_fade > 0.001) {
+    vec2 baseUv1 = getCoverUv(vUv, u_imgSize1);
+    vec2 uvR1 = clamp(baseUv1 + disp * (1.0 + chrom), 0.001, 0.999);
+    vec2 uvG1 = clamp(baseUv1 + disp, 0.001, 0.999);
+    vec2 uvB1 = clamp(baseUv1 + disp * (1.0 - chrom), 0.001, 0.999);
+
+    vec4 col1 = vec4(
+      texture2D(u_tex1, uvR1).r,
+      texture2D(u_tex1, uvG1).g,
+      texture2D(u_tex1, uvB1).b,
+      1.0
+    );
+    col = mix(col0, col1, u_fade);
+  }
+
+  // Glossy specular water sheen
+  float slope = speed * 1.6 + density * 0.45;
+  float spec = pow(clamp(slope * 1.5, 0.0, 1.0), 1.4) * (u_specular * 0.75);
+
+  gl_FragColor = vec4(clamp(col.rgb + vec3(spec, spec, spec * 1.1), 0.0, 1.0), 1.0);
+}
+`;
+
+const PortalRefractionCanvas: React.FC<{
+  images: string[];
+  hovered: boolean;
+  intervalMs?: number;
+}> = ({ images, hovered, intervalMs = 3000 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef<{ x: number; y: number; active: boolean; prevX: number; prevY: number }>({
-    x: -100,
-    y: -100,
-    prevX: -100,
-    prevY: -100,
-    active: false,
-  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const gl =
+      canvas.getContext('webgl', { alpha: false, antialias: false, depth: false }) ||
+      (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
+    if (!gl) return;
 
     let animId: number;
-    let w = 0;
-    let h = 0;
+    let currentSettings: RefractionSettings = loadRefractionSettings();
 
-    interface Ripple {
-      x: number;
-      y: number;
-      radius: number;
-      maxRadius: number;
-      speed: number;
-      life: number;
-    }
+    const handleSettingsUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<RefractionSettings>;
+      if (customEvent.detail) {
+        currentSettings = { ...customEvent.detail };
+      }
+    };
+    window.addEventListener('kum-refraction-settings', handleSettingsUpdate);
 
-    const ripples: Ripple[] = [];
-
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      w = Math.round(rect.width);
-      h = Math.round(rect.height);
-      canvas.width = w;
-      canvas.height = h;
+    // Compile Shaders
+    const createShader = (type: number, src: string) => {
+      const s = gl.createShader(type);
+      if (!s) return null;
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return s;
     };
 
-    resize();
-    window.addEventListener('resize', resize);
+    const vs = createShader(gl.VERTEX_SHADER, VS_PORTAL);
+    const fs = createShader(gl.FRAGMENT_SHADER, FS_PORTAL);
+    if (!vs || !fs) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      mouseRef.current.x = x;
-      mouseRef.current.y = y;
-      mouseRef.current.active = true;
+    const program = gl.createProgram();
+    if (!program) return;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.useProgram(program);
 
-      const dist = Math.hypot(x - mouseRef.current.prevX, y - mouseRef.current.prevY);
-      if (dist > 8 && ripples.length < 16) {
-        ripples.push({
-          x,
-          y,
-          radius: 4,
-          maxRadius: 80 + Math.random() * 50,
-          speed: 1.8 + Math.random() * 1.2,
-          life: 1.0,
-        });
-        mouseRef.current.prevX = x;
-        mouseRef.current.prevY = y;
+    // Full-screen Quad
+    const quadBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW
+    );
+    const aPos = gl.getAttribLocation(program, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    // Uniform locations
+    const uTex0Loc = gl.getUniformLocation(program, 'u_tex0');
+    const uTex1Loc = gl.getUniformLocation(program, 'u_tex1');
+    const uFluidLoc = gl.getUniformLocation(program, 'u_fluid');
+    const uFadeLoc = gl.getUniformLocation(program, 'u_fade');
+    const uDistortionLoc = gl.getUniformLocation(program, 'u_distortion');
+    const uChromaticLoc = gl.getUniformLocation(program, 'u_chromatic');
+    const uSpecularLoc = gl.getUniformLocation(program, 'u_specular');
+    const uResolutionLoc = gl.getUniformLocation(program, 'u_resolution');
+    const uImgSize0Loc = gl.getUniformLocation(program, 'u_imgSize0');
+    const uImgSize1Loc = gl.getUniformLocation(program, 'u_imgSize1');
+
+    gl.uniform1i(uTex0Loc, 0);
+    gl.uniform1i(uTex1Loc, 1);
+    gl.uniform1i(uFluidLoc, 2);
+
+    // Create textures
+    const createTex = () => {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([12, 10, 18, 255]));
+      return t;
+    };
+
+    const tex0 = createTex();
+    const tex1 = createTex();
+
+    // Fluid texture (Texture 2)
+    const fluidTexture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, fluidTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    const fluidData = new Uint8Array(SIM_SIZE * 4);
+    fluidData.fill(128);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SIM_W, SIM_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+
+    // Preload HTMLImageElements
+    const imageElements: HTMLImageElement[] = [];
+    images.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+      imageElements.push(img);
+    });
+
+    const updateTexFromImage = (tex: WebGLTexture | null, img: HTMLImageElement) => {
+      if (!tex || !img.complete || img.naturalWidth === 0) return;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    };
+
+    let currentIdx = 0;
+    let nextIdx = 1 % images.length;
+    let fadeStartTime = 0;
+    const FADE_DURATION = 1000;
+    let isFading = false;
+
+    // Load initial image
+    imageElements.forEach((img, idx) => {
+      if (img.complete && img.naturalWidth > 0) {
+        if (idx === 0) updateTexFromImage(tex0, img);
+      } else {
+        img.onload = () => {
+          if (idx === currentIdx) updateTexFromImage(tex0, img);
+        };
+      }
+    });
+
+    // Slideshow interval
+    const slideTimer = setInterval(() => {
+      if (isFading || imageElements.length < 2) return;
+      nextIdx = (currentIdx + 1) % imageElements.length;
+      gl.activeTexture(gl.TEXTURE1);
+      updateTexFromImage(tex1, imageElements[nextIdx]);
+      fadeStartTime = performance.now();
+      isFading = true;
+    }, intervalMs);
+
+    // Navier-Stokes fluid buffers
+    const u = new Float32Array(SIM_SIZE);
+    const v = new Float32Array(SIM_SIZE);
+    const u_prev = new Float32Array(SIM_SIZE);
+    const v_prev = new Float32Array(SIM_SIZE);
+    const dens = new Float32Array(SIM_SIZE);
+    const dens_prev = new Float32Array(SIM_SIZE);
+
+    let lastSimX = -100;
+    let lastSimY = -100;
+
+    const advect = (
+      d: Float32Array,
+      d0: Float32Array,
+      vx: Float32Array,
+      vy: Float32Array,
+      dt: number
+    ) => {
+      const dtX = dt * SIM_W;
+      const dtY = dt * SIM_H;
+      for (let y = 1; y < SIM_H - 1; y++) {
+        const row = y * SIM_W;
+        for (let x = 1; x < SIM_W - 1; x++) {
+          const idx = row + x;
+          let px = x - dtX * vx[idx];
+          let py = y - dtY * vy[idx];
+          if (px < 0.5) px = 0.5;
+          else if (px > SIM_W - 1.5) px = SIM_W - 1.5;
+          if (py < 0.5) py = 0.5;
+          else if (py > SIM_H - 1.5) py = SIM_H - 1.5;
+
+          const x0 = px | 0;
+          const x1 = x0 + 1;
+          const y0 = py | 0;
+          const y1 = y0 + 1;
+
+          const sx = px - x0;
+          const sy = py - y0;
+          const r0 = y0 * SIM_W;
+          const r1 = y1 * SIM_W;
+
+          d[idx] =
+            (1 - sx) * ((1 - sy) * d0[r0 + x0] + sy * d0[r1 + x0]) +
+            sx * ((1 - sy) * d0[r0 + x1] + sy * d0[r1 + x1]);
+        }
       }
     };
 
+    const project = (
+      vx: Float32Array,
+      vy: Float32Array,
+      p: Float32Array,
+      div: Float32Array
+    ) => {
+      const hX = 1 / SIM_W;
+      const hY = 1 / SIM_H;
+      for (let y = 1; y < SIM_H - 1; y++) {
+        const r = y * SIM_W;
+        for (let x = 1; x < SIM_W - 1; x++) {
+          const idx = r + x;
+          div[idx] = -0.5 * (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + SIM_W] - vy[idx - SIM_W]));
+          p[idx] = 0;
+        }
+      }
+
+      for (let iter = 0; iter < 10; iter++) {
+        for (let y = 1; y < SIM_H - 1; y++) {
+          const r = y * SIM_W;
+          for (let x = 1; x < SIM_W - 1; x++) {
+            const idx = r + x;
+            p[idx] = (div[idx] + p[idx - 1] + p[idx + 1] + p[idx - SIM_W] + p[idx + SIM_W]) * 0.25;
+          }
+        }
+      }
+
+      for (let y = 1; y < SIM_H - 1; y++) {
+        const r = y * SIM_W;
+        for (let x = 1; x < SIM_W - 1; x++) {
+          const idx = r + x;
+          vx[idx] -= 0.5 * (p[idx + 1] - p[idx - 1]) * SIM_W;
+          vy[idx] -= 0.5 * (p[idx + SIM_W] - p[idx - SIM_W]) * SIM_H;
+        }
+      }
+    };
+
+    const addForce = (x: number, y: number, fx: number, fy: number) => {
+      const radius = currentSettings.waveRadius || 3.5;
+      const radSq = radius * radius;
+      const minX = Math.max(1, Math.floor(x - radius));
+      const maxX = Math.min(SIM_W - 2, Math.ceil(x + radius));
+      const minY = Math.max(1, Math.floor(y - radius));
+      const maxY = Math.min(SIM_H - 2, Math.ceil(y + radius));
+
+      for (let cy = minY; cy <= maxY; cy++) {
+        const row = cy * SIM_W;
+        for (let cx = minX; cx <= maxX; cx++) {
+          const dSq = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+          if (dSq < radSq) {
+            const falloff = 1.0 - Math.sqrt(dSq) / radius;
+            const weight = falloff * falloff;
+            const idx = row + cx;
+            u[idx] += fx * weight;
+            v[idx] += fy * weight;
+            dens[idx] = Math.min(1.0, dens[idx] + weight * 0.45);
+          }
+        }
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const normX = (e.clientX - rect.left) / rect.width;
+      const normY = (e.clientY - rect.top) / rect.height;
+
+      if (normX < 0 || normX > 1 || normY < 0 || normY > 1) return;
+
+      const simX = normX * SIM_W;
+      const simY = normY * SIM_H;
+
+      if (lastSimX >= 0) {
+        const dx = simX - lastSimX;
+        const dy = simY - lastSimY;
+        const speed = Math.hypot(dx, dy);
+        if (speed > 0.05) {
+          addForce(simX, simY, dx * 0.45, dy * 0.45);
+        }
+      }
+
+      lastSimX = simX;
+      lastSimY = simY;
+    };
+
     const handleMouseLeave = () => {
-      mouseRef.current.active = false;
+      lastSimX = -100;
+      lastSimY = -100;
     };
 
     const parent = canvas.parentElement;
@@ -360,61 +676,95 @@ const PortalRefractionCanvas: React.FC<{ active: boolean }> = ({ active }) => {
       parent.addEventListener('mouseleave', handleMouseLeave);
     }
 
+    let frameCount = 0;
+
     const render = () => {
-      ctx.clearRect(0, 0, w, h);
+      frameCount++;
 
-      if (active || ripples.length > 0) {
-        // Draw fluid liquid glass caustic ripples
-        for (let i = ripples.length - 1; i >= 0; i--) {
-          const r = ripples[i];
-          r.radius += r.speed;
-          r.life -= 0.025;
+      // Real-time resolution sync (prevents stretching during flex-grow animation)
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const targetW = Math.round(rect.width * dpr);
+      const targetH = Math.round(rect.height * dpr);
 
-          if (r.life <= 0 || r.radius >= r.maxRadius) {
-            ripples.splice(i, 1);
-            continue;
-          }
-
-          // Luminous liquid chromatic prism caustics (cyan, magenta, white)
-          const alpha = r.life * 0.45;
-
-          // Outer cyan refraction fringe
-          ctx.beginPath();
-          ctx.arc(r.x, r.y, r.radius + 2, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(6, 182, 212, ${alpha * 0.5})`;
-          ctx.lineWidth = 3;
-          ctx.stroke();
-
-          // Core glossy white/violet refraction glint
-          ctx.beginPath();
-          ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(236, 72, 153, ${alpha * 0.6})`;
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-
-          // Highlight crest
-          ctx.beginPath();
-          ctx.arc(r.x, r.y, Math.max(1, r.radius - 1.5), 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-        }
-
-        // Spotlight water sheen directly under cursor
-        if (mouseRef.current.active && active) {
-          const mx = mouseRef.current.x;
-          const my = mouseRef.current.y;
-          const grad = ctx.createRadialGradient(mx, my, 0, mx, my, 120);
-          grad.addColorStop(0, 'rgba(168, 85, 247, 0.28)');
-          grad.addColorStop(0.5, 'rgba(236, 72, 153, 0.12)');
-          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(mx, my, 120, 0, Math.PI * 2);
-          ctx.fill();
-        }
+      if (targetW > 0 && targetH > 0 && (canvas.width !== targetW || canvas.height !== targetH)) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        gl.viewport(0, 0, targetW, targetH);
+        gl.uniform2f(uResolutionLoc, targetW, targetH);
       }
 
+      // Handle Crossfade animation
+      let uFadeVal = 0.0;
+      if (isFading) {
+        const elapsed = performance.now() - fadeStartTime;
+        uFadeVal = Math.min(1.0, elapsed / FADE_DURATION);
+        if (uFadeVal >= 1.0) {
+          currentIdx = nextIdx;
+          gl.activeTexture(gl.TEXTURE0);
+          updateTexFromImage(tex0, imageElements[currentIdx]);
+          uFadeVal = 0.0;
+          isFading = false;
+        }
+      }
+      gl.uniform1f(uFadeLoc, uFadeVal);
+
+      // Uniform image natural dimensions
+      const curImg = imageElements[currentIdx];
+      const nxtImg = imageElements[nextIdx];
+      gl.uniform2f(uImgSize0Loc, curImg?.naturalWidth || 1920, curImg?.naturalHeight || 1080);
+      gl.uniform2f(uImgSize1Loc, nxtImg?.naturalWidth || 1920, nxtImg?.naturalHeight || 1080);
+
+      // Gentle ambient liquid movement
+      if (hovered && Math.random() < 0.04) {
+        const ax = SIM_W * 0.3 + Math.random() * SIM_W * 0.4;
+        const ay = SIM_H * 0.3 + Math.random() * SIM_H * 0.4;
+        addForce(ax, ay, (Math.random() - 0.5) * 0.35, (Math.random() - 0.5) * 0.35);
+      }
+
+      // Step Navier-Stokes simulation
+      u_prev.set(u);
+      v_prev.set(v);
+      dens_prev.set(dens);
+
+      advect(u, u_prev, u_prev, v_prev, 0.016);
+      advect(v, v_prev, u_prev, v_prev, 0.016);
+      advect(dens, dens_prev, u, v, 0.016);
+
+      project(u, v, u_prev, v_prev);
+
+      const decay = currentSettings.dissipation || 0.965;
+      for (let i = 0; i < SIM_SIZE; i++) {
+        u[i] *= decay;
+        v[i] *= decay;
+        dens[i] *= decay;
+      }
+
+      // Upload fluid simulation field to Texture 2
+      for (let i = 0; i < SIM_SIZE; i++) {
+        const p = i * 4;
+        fluidData[p] = Math.min(255, Math.max(0, Math.floor((u[i] + 1.0) * 127.5)));
+        fluidData[p + 1] = Math.min(255, Math.max(0, Math.floor((v[i] + 1.0) * 127.5)));
+        fluidData[p + 2] = Math.min(255, Math.max(0, Math.floor(dens[i] * 255)));
+        fluidData[p + 3] = 255;
+      }
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, fluidTexture);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, SIM_W, SIM_H, gl.RGBA, gl.UNSIGNED_BYTE, fluidData);
+
+      // Bind slide textures
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex0);
+
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, tex1);
+
+      // Uniform parameters
+      gl.uniform1f(uDistortionLoc, currentSettings.distortion);
+      gl.uniform1f(uChromaticLoc, currentSettings.chromatic);
+      gl.uniform1f(uSpecularLoc, currentSettings.specular);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
       animId = requestAnimationFrame(render);
     };
 
@@ -422,22 +772,26 @@ const PortalRefractionCanvas: React.FC<{ active: boolean }> = ({ active }) => {
 
     return () => {
       cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
+      clearInterval(slideTimer);
+      window.removeEventListener('kum-refraction-settings', handleSettingsUpdate);
       if (parent) {
         parent.removeEventListener('mousemove', handleMouseMove);
         parent.removeEventListener('mouseleave', handleMouseLeave);
       }
     };
-  }, [active]);
+  }, [images, intervalMs, hovered]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={`absolute inset-0 w-full h-full pointer-events-none z-20 transition-opacity duration-500 filter blur-[0.5px] ${
-        active ? 'opacity-90' : 'opacity-0'
+    <div
+      className={`absolute inset-0 pointer-events-none overflow-hidden transition-all duration-700 ease-out ${
+        hovered
+          ? 'scale-105 filter grayscale-0 brightness-90 opacity-100'
+          : 'scale-100 filter grayscale-[80%] brightness-45 opacity-70'
       }`}
-      aria-hidden="true"
-    />
+      style={{ willChange: 'transform, filter, opacity' }}
+    >
+      <canvas ref={canvasRef} className="w-full h-full object-cover block" aria-hidden="true" />
+    </div>
   );
 };
 
@@ -559,16 +913,12 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
             : 'md:flex-1'
         }`}
       >
-        {/* Memory-efficient crossfade layer */}
-        <PortalSlideLayer
+        {/* Genuine WebGL Navier-Stokes Liquid Refraction Artwork Layer */}
+        <PortalRefractionCanvas
           images={DESIGN_PORTAL_ARTWORKS}
-          intervalMs={3000}
           hovered={hovered === 'design'}
-          alt="Дизайн"
+          intervalMs={3000}
         />
-
-        {/* Interactive Liquid Refraction Canvas Overlay */}
-        <PortalRefractionCanvas active={hovered === 'design'} />
 
         {/* Dreamlike atmospheric tint */}
         <div
