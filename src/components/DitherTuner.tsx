@@ -48,14 +48,14 @@ export interface RefractionSettings {
 }
 
 export const DEFAULT_REFRACTION_SETTINGS: RefractionSettings = {
-  specular: 0.12,       // Subtle, gentle glass sheen (eliminates blinding white streak!)
-  distortion: 28.0,
-  chromatic: 0.75,
+  specular: 0.0,        // Pure glass by default (0% white, 100% clean video refraction)
+  distortion: 30.0,
+  chromatic: 0.8,
   dissipation: 0.960,
   waveRadius: 3.0,
 };
 
-const REFRACTION_STORAGE_KEY = 'kum_refraction_settings_v1';
+const REFRACTION_STORAGE_KEY = 'kum_refraction_settings_v2';
 
 export const loadRefractionSettings = (): RefractionSettings => {
   try {
