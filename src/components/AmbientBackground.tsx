@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { RealmType } from '../data/projects';
 import { getAssetUrl } from '../utils/asset';
 import { GamedevDitherField } from './GamedevDitherField';
+import { DesignRefractionField } from './DesignRefractionField';
 
 interface AmbientBackgroundProps {
   currentRealm?: RealmType | null;
@@ -55,7 +56,7 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         <source src={getAssetUrl('/bg-video.mp4')} type="video/mp4" />
       </video>
 
-      {/* 2. Design Realm Video (From project "Поляна" - 100% clean, no dither) */}
+      {/* 2. Design Realm Video Stream (Source for WebGL Refraction) */}
       <video
         ref={designVideoRef}
         autoPlay
@@ -63,16 +64,15 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         loop
         playsInline
         preload="auto"
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${
-          isDesign ? 'opacity-65' : 'opacity-0'
-        }`}
-        style={{ willChange: 'opacity, filter' }}
+        crossOrigin="anonymous"
+        className="absolute inset-0 w-full h-full object-cover opacity-0 pointer-events-none"
       >
         <source src={getAssetUrl('/2_Polyana_F.mp4')} type="video/mp4" />
       </video>
 
-      {/* 3. Interactive Liquid Fluid Field (GameDev: Retro Bayer Dither; Design: Optical Video Refraction) */}
-      <GamedevDitherField realm={currentRealm} videoRef={isDesign ? designVideoRef : undefined} />
+      {/* 3. Realm Fields: GameDev Retro Bayer Dither vs Design Full-Res WebGL Refraction */}
+      {!isDesign && <GamedevDitherField />}
+      {isDesign && <DesignRefractionField videoRef={designVideoRef} />}
 
       {/* Dreamlike Ambient Color Orbs matching the active realm */}
       <div

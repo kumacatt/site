@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { RealmType } from '../data/projects';
-import {
-  loadDitherSettings,
-  DitherSettings,
-  loadRefractionSettings,
-  RefractionSettings,
-} from './DitherTuner';
+import { loadDitherSettings, DitherSettings } from './DitherTuner';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -15,7 +9,7 @@ const BAYER_4X4 = [
   [15,  7, 13,  5]
 ];
 
-// Screen to canvas downscaling factor (retro pixel scale for gamedev / crisp sampling for refraction)
+// Screen to canvas downscaling factor (retro pixel scale for GameDev)
 const PIXEL_SCALE = 4;
 
 // Navier-Stokes fluid simulation grid resolution
@@ -23,14 +17,8 @@ const SIM_W = 128;
 const SIM_H = 72;
 const SIM_SIZE = SIM_W * SIM_H;
 
-interface GamedevDitherFieldProps {
-  realm?: RealmType | null;
-  videoRef?: React.RefObject<HTMLVideoElement>;
-}
-
-export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 'gamedev', videoRef }) => {
+export const GamedevDitherField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isDesign = realm === 'design';
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -45,13 +33,8 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
     let imageData: ImageData | null = null;
     let buf32: Uint32Array | null = null;
 
-    // Offscreen canvas for sampling underlying video in Design realm (Optical Refraction)
-    const offscreenCanvas = document.createElement('canvas');
-    const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
-
-    // Load dynamic tuner settings (GameDev Dither & Design Refraction)
+    // Load dynamic tuner settings (persisted in localStorage or default)
     let currentSettings: DitherSettings = loadDitherSettings();
-    let currentRefraction: RefractionSettings = loadRefractionSettings();
 
     const handleDitherUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<DitherSettings>;
@@ -59,16 +42,7 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
         currentSettings = { ...customEvent.detail };
       }
     };
-
-    const handleRefractionUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<RefractionSettings>;
-      if (customEvent.detail) {
-        currentRefraction = { ...customEvent.detail };
-      }
-    };
-
     window.addEventListener('kum-dither-settings', handleDitherUpdate);
-    window.addEventListener('kum-refraction-settings', handleRefractionUpdate);
 
     // Pre-allocated Float32Array buffers for Navier-Stokes simulation
     const u = new Float32Array(SIM_SIZE);
@@ -88,8 +62,6 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       canvasH = Math.ceil(window.innerHeight / PIXEL_SCALE);
       canvas.width = canvasW;
       canvas.height = canvasH;
-      offscreenCanvas.width = canvasW;
-      offscreenCanvas.height = canvasH;
       imageData = ctx.createImageData(canvasW, canvasH);
       buf32 = new Uint32Array(imageData.data.buffer);
     };
@@ -97,7 +69,7 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
     resize();
     window.addEventListener('resize', resize);
 
-    // 1. Semi-Lagrangian Advection for Velocity and Density
+    // 1. Semi-Lagrangian Advection
     const advect = (
       d: Float32Array,
       d0: Float32Array,
@@ -137,7 +109,7 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       }
     };
 
-    // 2. Incompressibility Projection (creates natural swirling eddies and vortices like on lusion.co)
+    // 2. Incompressibility Projection
     const project = (
       vx: Float32Array,
       vy: Float32Array,
@@ -158,7 +130,6 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
         }
       }
 
-      // 4 Gauss-Seidel relaxation steps (fast & visually smooth)
       for (let k = 0; k < 4; k++) {
         for (let y = 1; y < SIM_H - 1; y++) {
           const r = y * SIM_W;
@@ -184,7 +155,7 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       }
     };
 
-    // Mouse Injection: injects fluid density and velocity along the mouse trajectory
+    // Mouse Injection
     const handleMouseMove = (e: MouseEvent) => {
       const simX = (e.clientX / window.innerWidth) * SIM_W;
       const simY = (e.clientY / window.innerHeight) * SIM_H;
@@ -201,15 +172,13 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       const dist = Math.hypot(dx, dy);
 
       if (dist > 0.08) {
-        // Interpolate along movement vector for continuous liquid flow without gaps
         const steps = Math.min(14, Math.max(1, Math.ceil(dist / 1.4)));
         const stepDx = dx / steps;
         const stepDy = dy / steps;
 
-        // Radius dynamically adapted from Tuner for both realms
-        const baseRadius = isDesign ? currentRefraction.waveRadius : currentSettings.fluidRadius;
+        const baseRadius = currentSettings.fluidRadius;
         const radius = Math.min(baseRadius * 1.5, baseRadius * 0.75 + dist * 0.16);
-        const force = isDesign ? Math.min(4.5, 0.6 + dist * 0.35) : Math.min(3.5, 0.4 + dist * 0.25);
+        const force = Math.min(3.5, 0.4 + dist * 0.25);
 
         for (let s = 0; s <= steps; s++) {
           const px = lastSimX + stepDx * s;
@@ -229,7 +198,6 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
               if (dSq < radius * radius) {
                 const falloff = 1 - Math.sqrt(dSq) / radius;
                 const idx = r + ix;
-                // Inject density and directional velocity
                 dens[idx] = Math.min(2.5, dens[idx] + falloff * 0.95);
                 u[idx] += dx * force * falloff * 0.14;
                 v[idx] += dy * force * falloff * 0.14;
@@ -252,76 +220,42 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     document.addEventListener('mouseleave', handleMouseLeave);
 
-    // 32-bit little-endian color: 0xAABBGGRR
     const makeColor = (r: number, g: number, b: number, a: number) => {
       return (a << 24) | (b << 16) | (g << 8) | r;
     };
 
-    // 60-120 FPS Fluid Simulation + Render Loop
+    // Render loop
     const render = () => {
       if (!ctx || !imageData || !buf32) return;
 
-      // 1. Advance Navier-Stokes Fluid Simulation Step (~0.5ms)
       const dt = 0.016;
 
-      // Swap buffers for velocity advection
       u_prev.set(u);
       v_prev.set(v);
       advect(u, u_prev, u_prev, v_prev, dt);
       advect(v, v_prev, u_prev, v_prev, dt);
-
-      // Enforce incompressibility & vortex curling
       project(u, v, u_prev, v_prev);
 
-      // Advect fluid density along computed velocity field
       dens_prev.set(dens);
       advect(dens, dens_prev, u, v, dt);
 
-      // Dissipation rate dynamically adapted per realm
-      const dissipation = isDesign ? currentRefraction.dissipation : currentSettings.dissipation;
+      const dissipation = currentSettings.dissipation;
       for (let i = 0; i < SIM_SIZE; i++) {
         dens[i] *= dissipation;
         u[i] *= 0.965;
         v[i] *= 0.965;
       }
 
-      // Check whether there is active motion in the field to optimize resting state
-      let hasMotion = false;
-      for (let i = 0; i < SIM_SIZE; i += 6) {
-        if (dens[i] > 0.005 || Math.abs(u[i]) > 0.002 || Math.abs(v[i]) > 0.002) {
-          hasMotion = true;
-          break;
-        }
-      }
-
-      // Clear render buffer
       buf32.fill(0);
 
       const simScaleX = (SIM_W - 1) / canvasW;
       const simScaleY = (SIM_H - 1) / canvasH;
 
-      // If in Design realm and we have motion, sample current video frame to displace it
-      let vidBuf32: Uint32Array | null = null;
-      if (isDesign && hasMotion && videoRef?.current && offscreenCtx) {
-        const video = videoRef.current;
-        if (video.readyState >= 2 && !video.paused) {
-          try {
-            offscreenCtx.drawImage(video, 0, 0, canvasW, canvasH);
-            const vidImg = offscreenCtx.getImageData(0, 0, canvasW, canvasH);
-            vidBuf32 = new Uint32Array(vidImg.data.buffer);
-          } catch {
-            vidBuf32 = null;
-          }
-        }
-      }
-
-      // 2. Render Fluid
       for (let cy = 0; cy < canvasH; cy++) {
         const by = cy % 4;
         const bayerRow = BAYER_4X4[by];
         const rowOffset = cy * canvasW;
 
-        // Map canvas Y to simulation space
         const simYFloat = cy * simScaleY;
         const simY0 = simYFloat | 0;
         const simY1 = simY0 + 1;
@@ -332,13 +266,11 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
         for (let cx = 0; cx < canvasW; cx++) {
           let pixel = 0;
 
-          // Map canvas X to simulation space
           const simXFloat = cx * simScaleX;
           const simX0 = simXFloat | 0;
           const simX1 = simX0 + 1;
           const fracX = simXFloat - simX0;
 
-          // Bilinear sample fluid density at (cx, cy)
           const d00 = dens[r0 + simX0];
           const d10 = dens[r0 + simX1];
           const d01 = dens[r1 + simX0];
@@ -348,108 +280,27 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
             (1 - fracX) * ((1 - fracY) * d00 + fracY * d01) +
             fracX * ((1 - fracY) * d10 + fracY * d11);
 
-          if (isDesign) {
-            // ==========================================
-            // === DESIGN & IDENTITY: OPTICAL REFRACTION
-            // ==========================================
-            // Dynamic liquid refraction with adjustable specular glint & distortion
-            if (hasMotion) {
-              const u00 = u[r0 + simX0];
-              const u10 = u[r0 + simX1];
-              const u01 = u[r1 + simX0];
-              const u11 = u[r1 + simX1];
-              const vx =
-                (1 - fracX) * ((1 - fracY) * u00 + fracY * u01) +
-                fracX * ((1 - fracY) * u10 + fracY * u11);
+          const bayerThreshold = bayerRow[cx % 4] / 16;
 
-              const v00 = v[r0 + simX0];
-              const v10 = v[r0 + simX1];
-              const v01 = v[r1 + simX0];
-              const v11 = v[r1 + simX1];
-              const vy =
-                (1 - fracX) * ((1 - fracY) * v00 + fracY * v01) +
-                fracX * ((1 - fracY) * v10 + fracY * v11);
+          // A. Base subtle resting dither field
+          if (currentSettings.baseOpacity > 0 && bayerRow[cx % 4] === 0) {
+            const baseAlpha = Math.floor(currentSettings.baseOpacity * 255);
+            pixel = makeColor(255, 255, 255, baseAlpha);
+          }
 
-              const speedSq = vx * vx + vy * vy;
+          // B. Threshold dynamic fluid density
+          if (fluidDensity > 0.015) {
+            const normalizedDensity = Math.min(1.0, fluidDensity * 0.85);
+            const shapedDensity = Math.pow(normalizedDensity, currentSettings.edgeSharpness);
 
-              if (speedSq > 0.0001 || fluidDensity > 0.005) {
-                const speed = Math.sqrt(speedSq);
-                const dispStrength = currentRefraction.distortion;
-                const dispX = vx * dispStrength;
-                const dispY = vy * dispStrength;
-
-                // Tunable specular sheen (If specular is 0.0, maxSpec is 0 -> pure video deformation!)
-                const waveSlope = speed * 1.5 + fluidDensity * 0.45;
-                const maxSpec = Math.round(180 * currentRefraction.specular);
-                const specular = maxSpec > 0
-                  ? Math.min(maxSpec, Math.floor(Math.pow(Math.min(1.0, waveSlope * 1.5), 1.35) * maxSpec))
-                  : 0;
-
-                if (vidBuf32) {
-                  // Refraction with Chromatic Dispersion
-                  const chrom = currentRefraction.chromatic;
-                  const rMult = 1.0 + chrom * 0.35;
-                  const bMult = 1.0 - chrom * 0.35;
-
-                  // Red channel offset
-                  const rx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * rMult) | 0));
-                  const ry = Math.max(0, Math.min(canvasH - 1, (cy + dispY * rMult) | 0));
-                  const r = vidBuf32[ry * canvasW + rx] & 0xff;
-
-                  // Green channel center
-                  const gx = Math.max(0, Math.min(canvasW - 1, (cx + dispX) | 0));
-                  const gy = Math.max(0, Math.min(canvasH - 1, (cy + dispY) | 0));
-                  const g = (vidBuf32[gy * canvasW + gx] >> 8) & 0xff;
-
-                  // Blue channel offset
-                  const bx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * bMult) | 0));
-                  const by = Math.max(0, Math.min(canvasH - 1, (cy + dispY * bMult) | 0));
-                  const b = (vidBuf32[by * canvasW + bx] >> 16) & 0xff;
-
-                  // Composite displaced image with specular highlight
-                  const outR = Math.min(255, r + specular);
-                  const outG = Math.min(255, g + specular);
-                  const outB = Math.min(255, b + Math.floor(specular * 1.1));
-
-                  // Alpha blend: smoothly overlays distorted ripples over undisturbed background video
-                  const alpha = Math.min(255, Math.floor(Math.min(1.0, speed * 2.8 + fluidDensity * 1.6) * 255));
-                  pixel = makeColor(outR, outG, outB, alpha);
-                } else if (specular > 0) {
-                  // Fallback transparent sheen if video buffer is loading
-                  pixel = makeColor(255, 255, 255, specular);
-                }
-              }
-            }
-          } else {
-            // ==========================================
-            // === GAMEDEV REALM: RETRO BAYER DITHER
-            // ==========================================
-            const bayerThreshold = bayerRow[cx % 4] / 16;
-
-            // A. Base subtle resting dither field
-            if (currentSettings.baseOpacity > 0 && bayerRow[cx % 4] === 0) {
-              const baseAlpha = Math.floor(currentSettings.baseOpacity * 255);
-              pixel = makeColor(255, 255, 255, baseAlpha);
-            }
-
-            // B. Threshold dynamic fluid density
-            if (fluidDensity > 0.015) {
-              // Edge Sharpness power curve:
-              // < 1.0 = soft, gradual dissolve fringes
-              // 1.0–1.8 = balanced retro Bayer dither edge
-              // 2.5–3.0 = sharp, crunchy retro threshold edge
-              const normalizedDensity = Math.min(1.0, fluidDensity * 0.85);
-              const shapedDensity = Math.pow(normalizedDensity, currentSettings.edgeSharpness);
-
-              if (shapedDensity > bayerThreshold) {
-                const alpha = Math.min(250, Math.floor(75 + shapedDensity * 175));
-                if (shapedDensity > 0.72) {
-                  // Hot golden highlight core
-                  pixel = makeColor(253, 224, 71, alpha);
-                } else {
-                  // Liquid amber dither pixel
-                  pixel = makeColor(245, 158, 11, alpha);
-                }
+            if (shapedDensity > bayerThreshold) {
+              const alpha = Math.min(250, Math.floor(75 + shapedDensity * 175));
+              if (shapedDensity > 0.72) {
+                // Hot golden highlight core
+                pixel = makeColor(253, 224, 71, alpha);
+              } else {
+                // Liquid amber dither pixel
+                pixel = makeColor(245, 158, 11, alpha);
               }
             }
           }
@@ -472,20 +323,15 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('kum-dither-settings', handleDitherUpdate);
-      window.removeEventListener('kum-refraction-settings', handleRefractionUpdate);
     };
-  }, [isDesign, videoRef]);
+  }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 w-full h-full pointer-events-none z-[1] transition-opacity duration-500 ${
-        isDesign ? 'opacity-95' : 'opacity-100'
-      }`}
+      className="absolute inset-0 w-full h-full pointer-events-none z-[1]"
       style={{
-        imageRendering: isDesign ? 'auto' : 'pixelated',
-        filter: 'none',
-        willChange: 'transform, opacity',
+        imageRendering: 'pixelated',
       }}
       aria-hidden="true"
     />
