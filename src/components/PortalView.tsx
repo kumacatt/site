@@ -345,7 +345,7 @@ void main() {
   float speed = length(vel);
 
   float screenAspect = max(0.01, u_resolution.x) / max(0.01, u_resolution.y);
-  vec2 disp = vel * (u_distortion * 0.0011);
+  vec2 disp = vel * (u_distortion * 0.0020);
   disp.x /= screenAspect;
 
   float chrom = u_chromatic * 0.35;
@@ -397,70 +397,69 @@ void main() {
   }
 
   // =========================================================================
-  // SMOOTH LIQUID-REFRACTED ANGLED STRIPES (NO DITHER, WITH FLUID DISTORTION)
+  // SUBTLE TRANSLUCENT LIQUID-REFRACTED STRIPES (CLEAR ARTWORK VISIBILITY)
   // =========================================================================
-  float effectiveGlow = max(0.10, u_glow);
-  if (effectiveGlow > 0.01) {
+  float effectiveGlow = max(0.04, u_glow * 0.35);
+  if (effectiveGlow > 0.005) {
     // Top-left origin DOM space (identical to GameDev and cursor mouse coordinates)
     vec2 domCoord = vec2(vUv.x, 1.0 - vUv.y) * u_resolution;
     vec2 mousePixel = u_mouse * u_resolution;
 
-    // Fluid distortion applied directly to the line coordinate space
-    vec2 liquidOffset = disp * u_resolution * 2.8 + vec2(density * 18.0 * 0.7, density * 18.0 * 0.35);
-    vec2 distortedCoord = domCoord + liquidOffset;
+    // Pronounced fluid displacement on the stripe lines
+    vec2 stripeDisplacement = vel * (u_distortion * 1.8) + vec2(cos(density * 15.0), sin(density * 15.0)) * (density * 30.0);
+    vec2 distortedCoord = domCoord + stripeDisplacement;
 
     // Exact same ~7-degree angled moving wave equation (cx * 0.07 + cy * 0.014 in 3px units)
     float phaseBase = (distortedCoord.x * 0.0233333 + distortedCoord.y * 0.0046666) - u_time * 1.4;
 
     // Chromatic dispersion through the refracted stripes
-    float chromDisp = u_chromatic * 0.45;
-    float phaseR = phaseBase + disp.x * u_resolution.x * 0.008 * (1.0 + chromDisp);
-    float phaseG = phaseBase + disp.x * u_resolution.x * 0.008;
-    float phaseB = phaseBase + disp.x * u_resolution.x * 0.008 * (1.0 - chromDisp);
+    float chromDisp = u_chromatic * 0.35;
+    float phaseR = phaseBase + disp.x * u_resolution.x * 0.006 * (1.0 + chromDisp);
+    float phaseG = phaseBase + disp.x * u_resolution.x * 0.006;
+    float phaseB = phaseBase + disp.x * u_resolution.x * 0.006 * (1.0 - chromDisp);
 
     // Smooth, silky non-dithered stripe profiles
     float waveR = sin(phaseR);
     float waveG = sin(phaseG);
     float waveB = sin(phaseB);
 
-    // Sharp luminous stripe profile (pow creates crisp bright beams with soft anti-aliased glow)
-    float stripeProfileR = pow(max(0.0, waveR * 0.5 + 0.5), 3.2);
-    float stripeProfileG = pow(max(0.0, waveG * 0.5 + 0.5), 3.2);
-    float stripeProfileB = pow(max(0.0, waveB * 0.5 + 0.5), 3.2);
+    // Soft luminous stripe profile (pow creates elegant, smooth anti-aliased beam edges)
+    float stripeProfileR = pow(max(0.0, waveR * 0.5 + 0.5), 3.0);
+    float stripeProfileG = pow(max(0.0, waveG * 0.5 + 0.5), 3.0);
+    float stripeProfileB = pow(max(0.0, waveB * 0.5 + 0.5), 3.0);
 
     float baseStripe = stripeProfileG;
 
-    // Mouse excitation: Directly energizes and sharpens the stripes under cursor (pinpoint 1:1, non-inverted)
+    // Mouse excitation: gentle glow under cursor (pinpoint 1:1, non-inverted)
     float mouseGlow = 0.0;
     if (u_mouseActive > 0.5) {
       float dist = length(domCoord - mousePixel);
-      float radius = 285.0; // 95 * 3px
+      float radius = 260.0;
       if (dist < radius) {
         float falloff = 1.0 - dist / radius;
         mouseGlow = falloff * falloff;
       }
     }
 
-    // Dynamic wave response: fluid speed and ripple density excite the stripes
-    float fluidExcitation = (speed * 0.7 + density * 0.5) * 0.45;
+    // Dynamic wave response from fluid
+    float fluidExcitation = (speed * 0.6 + density * 0.4) * 0.35;
 
-    float intensity = (baseStripe * 0.38 + mouseGlow * (baseStripe * 0.45 + 0.55) * 0.85 + fluidExcitation) * effectiveGlow;
+    float intensity = (baseStripe * 0.40 + mouseGlow * 0.50 + fluidExcitation) * effectiveGlow;
 
-    if (intensity > 0.005) {
-      // Design Electric Lilac / Violet Color Gradient
-      vec3 deepPurple = vec3(0.62, 0.28, 0.95);
-      vec3 brightLilac = vec3(0.95, 0.86, 1.00);
+    if (intensity > 0.002) {
+      // Atmospheric Electric Lilac / Violet Hue (Soft and translucent, never blown out to white)
+      vec3 deepPurple = vec3(0.58, 0.22, 0.92);
+      vec3 softLilac = vec3(0.82, 0.60, 1.00);
 
       // Chromatic RGB tint
-      vec3 stripeRgb = vec3(stripeProfileR * 0.75 + stripeProfileG * 0.25, 
+      vec3 stripeRgb = vec3(stripeProfileR * 0.70 + stripeProfileG * 0.30, 
                             stripeProfileG * 0.50 + stripeProfileB * 0.30, 
                             stripeProfileB * 0.95);
 
-      vec3 finalStripeColor = mix(deepPurple * stripeRgb, brightLilac, clamp(intensity * 0.9, 0.0, 1.0));
-      float stripeAlpha = clamp(intensity * 0.88, 0.0, 0.95);
+      vec3 finalStripeColor = mix(deepPurple * stripeRgb, softLilac, mouseGlow * 0.45);
 
-      // Screen / additive blend with the refracted artwork
-      col.rgb = mix(col.rgb, col.rgb + finalStripeColor * 0.95, stripeAlpha);
+      // Delicate additive sheen: keeps the background artwork and its liquid refraction 100% visible!
+      col.rgb += finalStripeColor * (intensity * 0.42);
     }
   }
 
