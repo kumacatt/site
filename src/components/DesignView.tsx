@@ -51,8 +51,8 @@ export const DesignView: React.FC<DesignViewProps> = ({ onOpenProject }) => {
             <span>02 / Design & Identity</span>
           </div>
 
-          {/* Large Title in Bottom-Left with Keleti font */}
-          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal text-white tracking-wide uppercase font-heading drop-shadow-2xl">
+          {/* Large Title in Bottom-Left with Gropled-Bold (font-sans) */}
+          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white tracking-tight uppercase font-sans drop-shadow-2xl">
             {t.title[lang]}
           </h1>
 

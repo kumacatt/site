@@ -249,7 +249,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
           </span>
 
           <div className="flex items-baseline justify-between">
-            <h2 className="text-3xl sm:text-5xl md:text-6xl font-normal text-white tracking-wide uppercase transition-colors group-hover:text-purple-200 font-heading">
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight uppercase transition-colors group-hover:text-purple-200 font-sans">
               {t.realm2Title[lang]}
             </h2>
             <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 group-hover:text-white group-hover:border-purple-400 group-hover:bg-purple-500/20 transition-all flex-shrink-0 ml-4">

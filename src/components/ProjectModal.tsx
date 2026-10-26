@@ -217,7 +217,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
                 ))}
               </div>
 
-              <h1 className="text-3xl sm:text-4xl font-normal tracking-wide text-white font-heading">
+              <h1 className={`text-3xl sm:text-4xl text-white tracking-wide ${
+                project.realm === 'gamedev' ? 'font-normal font-heading' : 'font-bold font-sans'
+              }`}>
                 {getLocalized(project.title, lang)}
               </h1>
 

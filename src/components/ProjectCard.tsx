@@ -123,58 +123,54 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, index
           isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Procedural Dither Edge Shader (crawls in along the sides with the blur) */}
-        <div
-          className={`absolute inset-0 pointer-events-none -z-10 overflow-hidden transition-opacity duration-300 ${
-            isHovered ? 'opacity-100' : 'opacity-0'
-          }`}
-          aria-hidden="true"
-        >
-          {/* Left Side Bayer Dither Ramp */}
+        {/* Procedural Dither Edge Shader (Gamedev cards only - crawls in along the sides with blur) */}
+        {project.realm === 'gamedev' && (
           <div
-            className="absolute top-0 bottom-0 left-0 w-12 transition-transform duration-300 ease-out"
-            style={{
-              transform: isHovered ? 'translateX(0)' : 'translateX(-12px)',
-              maskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-              WebkitMaskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-              maskRepeat: 'repeat-y',
-              WebkitMaskRepeat: 'repeat-y',
-              maskSize: '48px 8px',
-              WebkitMaskSize: '48px 8px',
-              background: project.realm === 'gamedev'
-                ? 'linear-gradient(to right, rgba(245, 158, 11, 0.4) 0%, rgba(245, 158, 11, 0.1) 65%, transparent 100%)'
-                : 'linear-gradient(to right, rgba(168, 85, 247, 0.4) 0%, rgba(168, 85, 247, 0.1) 65%, transparent 100%)',
-            }}
-          />
+            className={`absolute inset-0 pointer-events-none -z-10 overflow-hidden transition-opacity duration-300 ${
+              isHovered ? 'opacity-100' : 'opacity-0'
+            }`}
+            aria-hidden="true"
+          >
+            {/* Left Side Bayer Dither Ramp */}
+            <div
+              className="absolute top-0 bottom-0 left-0 w-12 transition-transform duration-300 ease-out"
+              style={{
+                transform: isHovered ? 'translateX(0)' : 'translateX(-12px)',
+                maskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
+                WebkitMaskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
+                maskRepeat: 'repeat-y',
+                WebkitMaskRepeat: 'repeat-y',
+                maskSize: '48px 8px',
+                WebkitMaskSize: '48px 8px',
+                background: 'linear-gradient(to right, rgba(245, 158, 11, 0.45) 0%, rgba(245, 158, 11, 0.1) 65%, transparent 100%)',
+              }}
+            />
 
-          {/* Right Side Bayer Dither Ramp (Flipped) */}
-          <div
-            className="absolute top-0 bottom-0 right-0 w-12 transition-transform duration-300 ease-out"
-            style={{
-              transform: isHovered ? 'scaleX(-1) translateX(0)' : 'scaleX(-1) translateX(-12px)',
-              maskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-              WebkitMaskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
-              maskRepeat: 'repeat-y',
-              WebkitMaskRepeat: 'repeat-y',
-              maskSize: '48px 8px',
-              WebkitMaskSize: '48px 8px',
-              background: project.realm === 'gamedev'
-                ? 'linear-gradient(to right, rgba(245, 158, 11, 0.4) 0%, rgba(245, 158, 11, 0.1) 65%, transparent 100%)'
-                : 'linear-gradient(to right, rgba(168, 85, 247, 0.4) 0%, rgba(168, 85, 247, 0.1) 65%, transparent 100%)',
-            }}
-          />
+            {/* Right Side Bayer Dither Ramp (Flipped) */}
+            <div
+              className="absolute top-0 bottom-0 right-0 w-12 transition-transform duration-300 ease-out"
+              style={{
+                transform: isHovered ? 'scaleX(-1) translateX(0)' : 'scaleX(-1) translateX(-12px)',
+                maskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
+                WebkitMaskImage: `url(${getAssetUrl('/dither-edge-ramp.svg')})`,
+                maskRepeat: 'repeat-y',
+                WebkitMaskRepeat: 'repeat-y',
+                maskSize: '48px 8px',
+                WebkitMaskSize: '48px 8px',
+                background: 'linear-gradient(to right, rgba(245, 158, 11, 0.45) 0%, rgba(245, 158, 11, 0.1) 65%, transparent 100%)',
+              }}
+            />
 
-          {/* Interactive Mouse Highlight inside Card */}
-          <div
-            className="absolute inset-0 transition-opacity duration-150"
-            style={{
-              background: `radial-gradient(circle 120px at var(--card-mouse-x, 50%) var(--card-mouse-y, 50%), ${
-                project.realm === 'gamedev' ? 'rgba(245, 158, 11, 0.10)' : 'rgba(168, 85, 247, 0.10)'
-              } 0%, transparent 100%)`,
-              mixBlendMode: 'screen',
-            }}
-          />
-        </div>
+            {/* Interactive Mouse Highlight inside Card */}
+            <div
+              className="absolute inset-0 transition-opacity duration-150"
+              style={{
+                background: 'radial-gradient(circle 120px at var(--card-mouse-x, 50%) var(--card-mouse-y, 50%), rgba(245, 158, 11, 0.12) 0%, transparent 100%)',
+                mixBlendMode: 'screen',
+              }}
+            />
+          </div>
+        )}
 
         {/* Top strip */}
         <div className="flex items-center justify-between">
@@ -203,7 +199,9 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, index
         <div className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <h3 className="text-xl sm:text-2xl font-normal text-white tracking-wide font-heading">
+              <h3 className={`text-xl sm:text-2xl text-white tracking-wide ${
+                project.realm === 'gamedev' ? 'font-normal font-heading' : 'font-bold font-sans'
+              }`}>
                 {getLocalized(project.title, lang)}
               </h3>
               <p className="text-xs sm:text-sm font-mono text-white/70 line-clamp-1 mt-0.5">
