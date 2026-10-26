@@ -33,22 +33,22 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 px-3 sm:px-8 py-3 sm:py-4 pointer-events-none">
+    <header className="fixed top-0 left-0 right-0 z-40 px-4 sm:px-8 lg:px-12 py-4 sm:py-5 pointer-events-none transition-all duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
         {/* Left: Brand / Logo button */}
         <button
           onClick={onOpenPortal}
           title={t.portal[lang]}
-          className="flex items-center gap-2 group p-2 sm:px-3.5 sm:py-2 rounded-2xl bg-black/55 backdrop-blur-xl border border-white/10 hover:border-white/30 transition-all shadow-lg flex-shrink-0"
+          className="flex items-center gap-2.5 group px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/15 hover:border-amber-400/40 hover:bg-black/75 transition-all shadow-xl flex-shrink-0 active:scale-95"
         >
-          <Compass size={15} className="text-amber-400 group-hover:rotate-45 transition-transform flex-shrink-0" />
-          <span className="hidden sm:inline text-xs font-bold text-white tracking-widest uppercase font-sans">
+          <Compass size={18} className="text-amber-400 group-hover:rotate-45 transition-transform duration-300 flex-shrink-0" />
+          <span className="hidden sm:inline text-sm font-bold text-white tracking-widest uppercase font-sans">
             {t.name[lang]}
           </span>
         </button>
 
-        {/* Center: Realm Toggle Pill — ALWAYS VISIBLE on both Mobile & Desktop */}
-        <div className="flex items-center p-1 rounded-2xl bg-black/65 backdrop-blur-2xl border border-white/15 shadow-2xl mx-1 sm:mx-2 flex-shrink-0">
+        {/* Center: Realm Toggle Pill — Highly visible, prominent & clean */}
+        <div className="flex items-center p-1.5 sm:p-2 rounded-2xl bg-neutral-950/85 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)] mx-2 sm:mx-4 flex-shrink-0">
           <button
             onClick={(e) => {
               if (currentRealm !== 'gamedev') {
@@ -64,18 +64,17 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               }
               onSelectRealm('gamedev');
             }}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl text-xs font-mono transition-all duration-300 ${
+            className={`flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono uppercase tracking-wider font-bold transition-all duration-300 active:scale-95 ${
               currentRealm === 'gamedev'
-                ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-md font-semibold'
-                : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
+                ? 'bg-gradient-to-r from-amber-500/35 via-amber-500/25 to-amber-600/35 text-amber-300 border border-amber-400/60 shadow-[0_0_24px_rgba(245,158,11,0.35)]'
+                : 'text-neutral-400 hover:text-white hover:bg-white/10 border border-transparent'
             }`}
           >
-            <Gamepad2 size={13} className="flex-shrink-0" />
-            <span className="hidden sm:inline">{t.gamedev[lang]}</span>
-            <span className="sm:hidden">Gamedev</span>
+            <Gamepad2 size={17} className={`flex-shrink-0 ${currentRealm === 'gamedev' ? 'text-amber-400' : 'text-neutral-400'}`} />
+            <span>{t.gamedev[lang]}</span>
           </button>
 
-          <div className="w-px h-4 bg-white/10 mx-0.5 sm:mx-1 flex-shrink-0" />
+          <div className="w-px h-6 bg-white/15 mx-1 sm:mx-1.5 flex-shrink-0" />
 
           <button
             onClick={(e) => {
@@ -92,46 +91,45 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               }
               onSelectRealm('design');
             }}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl text-xs font-mono transition-all duration-300 ${
+            className={`flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono uppercase tracking-wider font-bold transition-all duration-300 active:scale-95 ${
               currentRealm === 'design'
-                ? 'bg-purple-500/25 text-purple-300 border border-purple-500/40 shadow-md font-semibold'
-                : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
+                ? 'bg-gradient-to-r from-purple-500/35 via-purple-500/25 to-fuchsia-600/35 text-purple-200 border border-purple-400/60 shadow-[0_0_24px_rgba(168,85,247,0.35)]'
+                : 'text-neutral-400 hover:text-white hover:bg-white/10 border border-transparent'
             }`}
           >
-            <Palette size={13} className="flex-shrink-0" />
-            <span className="hidden sm:inline">{t.design[lang]}</span>
-            <span className="sm:hidden">{lang === 'ru' ? 'Дизайн' : 'Design'}</span>
+            <Palette size={17} className={`flex-shrink-0 ${currentRealm === 'design' ? 'text-purple-300' : 'text-neutral-400'}`} />
+            <span>{t.design[lang]}</span>
           </button>
         </div>
 
         {/* Right Controls: Full Bar on Desktop (`md:flex`) */}
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2.5">
           {/* Language Switcher */}
           <LanguageSwitch />
 
           <button
             onClick={handleCopyCurrentLink}
             title={t.copyTabLink[lang]}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/50 backdrop-blur-xl border border-white/10 hover:border-white/30 text-xs font-mono text-white/70 hover:text-white transition-all"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-black/55 backdrop-blur-xl border border-white/15 hover:border-white/35 text-xs sm:text-sm font-mono text-white/80 hover:text-white transition-all shadow-md active:scale-95"
           >
             {copied ? (
-              <Check size={13} className="text-emerald-400" />
+              <Check size={15} className="text-emerald-400" />
             ) : (
-              <Share2 size={13} />
+              <Share2 size={15} />
             )}
             <span>#{currentRealm}</span>
           </button>
 
           <button
             onClick={() => onScrollTo('about')}
-            className="px-3.5 py-2 rounded-xl bg-black/50 backdrop-blur-xl border border-white/10 hover:border-white/30 text-xs font-mono text-white/75 hover:text-white transition-all"
+            className="px-4 py-2.5 rounded-xl bg-black/55 backdrop-blur-xl border border-white/15 hover:border-white/35 text-xs sm:text-sm font-mono text-white/85 hover:text-white transition-all shadow-md active:scale-95"
           >
             {t.about[lang]}
           </button>
 
           <button
             onClick={() => onScrollTo('contacts')}
-            className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/20 text-xs font-mono text-white transition-all font-medium"
+            className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-xl border border-white/25 text-xs sm:text-sm font-mono text-white transition-all font-semibold shadow-md active:scale-95"
           >
             {t.contacts[lang]}
           </button>
@@ -140,40 +138,40 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
           <button
             onClick={onToggleSettings}
             title={lang === 'ru' ? 'Настройки дизера' : 'Dither Settings'}
-            className="p-2.5 rounded-xl bg-black/50 hover:bg-white/10 backdrop-blur-xl border border-white/10 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 transition-all flex items-center justify-center group"
+            className="p-2.5 rounded-xl bg-black/55 hover:bg-white/15 backdrop-blur-xl border border-white/15 hover:border-amber-500/50 text-amber-400 hover:text-amber-300 transition-all flex items-center justify-center group shadow-md active:scale-95"
           >
-            <Settings size={15} className="group-hover:rotate-90 transition-transform duration-300" />
+            <Settings size={18} className="group-hover:rotate-90 transition-transform duration-300" />
           </button>
         </div>
 
         {/* Right Controls on Mobile (`md:hidden`): Language Switch + Hamburger */}
-        <div className="md:hidden flex items-center gap-1.5 sm:gap-2">
+        <div className="md:hidden flex items-center gap-2">
           <LanguageSwitch />
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Меню навигации"
-            className="w-9 h-9 rounded-xl bg-black/60 backdrop-blur-xl border border-white/15 flex items-center justify-center text-white/80 hover:text-white transition-colors"
+            className="w-10 h-10 rounded-xl bg-black/70 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white/90 hover:text-white transition-colors active:scale-95"
           >
-            {mobileMenuOpen ? <X size={17} /> : <Menu size={17} />}
+            {mobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
           </button>
         </div>
       </div>
 
       {/* Mobile Drawer (Collapsed items: Share, About, Contacts, Portal) */}
       {mobileMenuOpen && (
-        <div className="md:hidden mt-2 p-4 rounded-2xl bg-neutral-950/95 backdrop-blur-2xl border border-white/15 shadow-2xl flex flex-col gap-2.5 pointer-events-auto animate-fade-in">
+        <div className="md:hidden mt-3 p-4 rounded-2xl bg-neutral-950/95 backdrop-blur-2xl border border-white/20 shadow-2xl flex flex-col gap-3 pointer-events-auto animate-fade-in">
           {/* Quick Share Link */}
           <button
             onClick={() => {
               handleCopyCurrentLink();
             }}
-            className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-white/90 transition-colors"
+            className="flex items-center justify-between p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-mono text-white/90 transition-colors"
           >
-            <span className="flex items-center gap-2">
-              <Share2 size={14} className="text-amber-400" />
+            <span className="flex items-center gap-2.5">
+              <Share2 size={16} className="text-amber-400" />
               <span>{t.copyTabLink[lang]}</span>
             </span>
-            <span className="text-[11px] font-mono text-white/50">
+            <span className="text-xs font-mono text-white/50">
               {copied ? <span className="text-emerald-400 font-bold">{t.copied[lang]}</span> : `#${currentRealm}`}
             </span>
           </button>
@@ -184,7 +182,7 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               onScrollTo('about');
               setMobileMenuOpen(false);
             }}
-            className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-white/90 transition-colors text-left"
+            className="flex items-center justify-between p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-mono text-white/90 transition-colors text-left"
           >
             <span>{t.about[lang]}</span>
             <span className="text-white/40">→</span>
@@ -196,7 +194,7 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               onScrollTo('contacts');
               setMobileMenuOpen(false);
             }}
-            className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-xs font-mono text-white transition-colors text-left font-medium"
+            className="flex items-center justify-between p-3.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-sm font-mono text-white transition-colors text-left font-medium"
           >
             <span>{t.contacts[lang]}</span>
             <span className="text-white/40">→</span>
@@ -208,13 +206,13 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               if (onToggleSettings) onToggleSettings();
               setMobileMenuOpen(false);
             }}
-            className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-mono text-amber-300 transition-colors text-left"
+            className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-sm font-mono text-amber-300 transition-colors text-left"
           >
-            <span className="flex items-center gap-2">
-              <Settings size={14} className="text-amber-400" />
+            <span className="flex items-center gap-2.5">
+              <Settings size={16} className="text-amber-400" />
               <span>{lang === 'ru' ? 'Настройки дизера' : 'Dither Settings'}</span>
             </span>
-            <span className="text-[10px] font-mono text-amber-400/70 font-bold">⚙️</span>
+            <span className="text-xs font-mono text-amber-400/70 font-bold">⚙️</span>
           </button>
 
           {/* Portal Switcher */}
@@ -223,13 +221,13 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
               onOpenPortal();
               setMobileMenuOpen(false);
             }}
-            className="flex items-center justify-between p-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-xs font-mono text-amber-300 transition-colors text-left"
+            className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-sm font-mono text-amber-300 transition-colors text-left"
           >
-            <span className="flex items-center gap-2">
-              <Compass size={14} />
+            <span className="flex items-center gap-2.5">
+              <Compass size={16} />
               <span>{t.portal[lang]}</span>
             </span>
-            <ArrowUpRight size={14} />
+            <ArrowUpRight size={16} />
           </button>
         </div>
       )}

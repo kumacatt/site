@@ -36,8 +36,8 @@ export const TRANSLATIONS = {
 
   header: {
     name: { ru: 'Игорь Чураков', en: 'Igor Churakov' },
-    gamedev: { ru: 'Gamedev / CG', en: 'Gamedev / CG' },
-    design: { ru: 'Дизайн / Айдентика', en: 'Design & Identity' },
+    gamedev: { ru: 'Геймдев', en: 'Gamedev' },
+    design: { ru: 'Дизайн', en: 'Design' },
     about: { ru: 'Обо мне', en: 'About' },
     contacts: { ru: 'Контакты', en: 'Contacts' },
     portal: { ru: 'Выбрать сферу', en: 'Portals' },
