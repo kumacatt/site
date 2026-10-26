@@ -317,6 +317,25 @@ uniform float u_specular;
 uniform vec2 u_resolution;
 uniform vec2 u_imgSize0;
 uniform vec2 u_imgSize1;
+uniform float u_time;
+uniform float u_glow;
+uniform vec2 u_mouse;
+uniform float u_mouseActive;
+
+float bayer4(vec2 p) {
+  vec2 b = floor(mod(p, 4.0));
+  float m = 0.0;
+  if (b.y < 1.0) {
+    if (b.x < 1.0) m = 0.0; else if (b.x < 2.0) m = 8.0; else if (b.x < 3.0) m = 2.0; else m = 10.0;
+  } else if (b.y < 2.0) {
+    if (b.x < 1.0) m = 12.0; else if (b.x < 2.0) m = 4.0; else if (b.x < 3.0) m = 14.0; else m = 6.0;
+  } else if (b.y < 3.0) {
+    if (b.x < 1.0) m = 3.0; else if (b.x < 2.0) m = 11.0; else if (b.x < 3.0) m = 1.0; else m = 9.0;
+  } else {
+    if (b.x < 1.0) m = 15.0; else if (b.x < 2.0) m = 7.0; else if (b.x < 3.0) m = 13.0; else m = 5.0;
+  }
+  return m / 16.0;
+}
 
 vec2 getCoverUv(vec2 uv, vec2 imgSize) {
   vec2 cUv = uv;
@@ -392,11 +411,53 @@ void main() {
     col = mix(col0, col1, u_fade);
   }
 
+  // =========================================================================
+  // REFRACTED & DISTORTED ANGLED DITHER RASTER STRIPES (Counterpart to GameDev)
+  // =========================================================================
+  float effectiveGlow = max(0.08, u_glow);
+  if (effectiveGlow > 0.01) {
+    vec2 screenCoord = vUv * u_resolution;
+    // Fluid refraction displacement applied to dither coordinates
+    vec2 distortedCoord = screenCoord + disp * u_resolution * 2.4;
+    vec2 ditherPixel = floor(distortedCoord / 3.0);
+
+    // Identical ~7-degree angled moving wave equation
+    float stripeWave = sin((ditherPixel.x * 0.07 + ditherPixel.y * 0.014) - u_time * 1.4);
+    float intensity = max(0.0, stripeWave * 0.16 + 0.04) * effectiveGlow;
+
+    // Cursor excitation: energizes and sharpens the stripes under mouse
+    if (u_mouseActive > 0.5) {
+      vec2 mPixel = (u_mouse * u_resolution) / 3.0;
+      float dist = length(ditherPixel - mPixel);
+      float radius = 95.0;
+      if (dist < radius) {
+        float falloff = 1.0 - dist / radius;
+        float smoothFalloff = falloff * falloff;
+        intensity += (stripeWave * 0.45 + 0.55) * smoothFalloff * 0.95 * u_glow;
+      }
+    }
+
+    // Fluid turbulence adds tactile electric response to ripples
+    intensity += (speed * 0.6 + density * 0.4) * 0.35 * u_glow;
+
+    if (intensity > 0.02) {
+      float bayerThresh = bayer4(ditherPixel);
+      float shaped = pow(clamp(intensity, 0.0, 1.0), 1.25);
+      if (shaped > bayerThresh) {
+        float isCore = step(0.6, shaped);
+        // Design Electric Lilac / Purple Palette
+        vec3 stripeCol = mix(vec3(0.68, 0.35, 0.98), vec3(0.95, 0.85, 1.0), isCore);
+        float alpha = clamp(0.25 + shaped * 0.70, 0.0, 0.92);
+        col.rgb = mix(col.rgb, col.rgb + stripeCol * 0.85, alpha);
+      }
+    }
+  }
+
   // Glossy specular water sheen
   float slope = speed * 1.6 + density * 0.5;
   float spec = pow(clamp(slope * 1.5, 0.0, 1.0), 1.3) * (u_specular * 0.85);
 
-  gl_FragColor = vec4(clamp(col.rgb + vec3(spec, spec, spec * 1.15), 0.0, 1.0), 1.0);
+  gl_FragColor = vec4(clamp(col.rgb + vec3(spec * 0.9, spec * 0.8, spec * 1.15), 0.0, 1.0), 1.0);
 }
 `;
 
@@ -475,6 +536,10 @@ const PortalRefractionCanvas: React.FC<{
     const uResolutionLoc = gl.getUniformLocation(program, 'u_resolution');
     const uImgSize0Loc = gl.getUniformLocation(program, 'u_imgSize0');
     const uImgSize1Loc = gl.getUniformLocation(program, 'u_imgSize1');
+    const uTimeLoc = gl.getUniformLocation(program, 'u_time');
+    const uGlowLoc = gl.getUniformLocation(program, 'u_glow');
+    const uMouseLoc = gl.getUniformLocation(program, 'u_mouse');
+    const uMouseActiveLoc = gl.getUniformLocation(program, 'u_mouseActive');
 
     gl.uniform1i(uTex0Loc, 0);
     gl.uniform1i(uTex1Loc, 1);
@@ -568,6 +633,12 @@ const PortalRefractionCanvas: React.FC<{
     let lastSimY = -100;
     let lastSimTime = 0;
     let isMouseActive = false;
+    let targetGlow = 0;
+    let currentGlow = 0;
+    let ripplePhase = 0;
+    let mouseNormX = -100;
+    let mouseNormY = -100;
+    let isMouseInside = false;
 
     const advect = (
       d: Float32Array,
@@ -653,6 +724,7 @@ const PortalRefractionCanvas: React.FC<{
 
       // Only inject force when cursor is within the Design half card bounds
       if (normX < 0 || normX > 1 || normY < 0 || normY > 1) {
+        isMouseInside = false;
         if (isMouseActive) {
           isMouseActive = false;
           lastSimX = -100;
@@ -660,6 +732,10 @@ const PortalRefractionCanvas: React.FC<{
         }
         return;
       }
+
+      mouseNormX = normX;
+      mouseNormY = normY;
+      isMouseInside = true;
 
       const simX = normX * simW;
       const simY = normY * simH;
@@ -729,6 +805,7 @@ const PortalRefractionCanvas: React.FC<{
 
     const handleMouseLeave = () => {
       isMouseActive = false;
+      isMouseInside = false;
       lastSimX = -100;
       lastSimY = -100;
       lastSimTime = 0;
@@ -906,6 +983,16 @@ const PortalRefractionCanvas: React.FC<{
       gl.uniform1f(uDistortionLoc, currentSettings.distortion * 0.60);
       gl.uniform1f(uChromaticLoc, currentSettings.chromatic * 0.60);
       gl.uniform1f(uSpecularLoc, currentSettings.specular * 0.70);
+
+      // Angled Dither Stripes with Fluid Refraction Uniforms
+      targetGlow = hoveredRef.current ? 1.0 : 0.0;
+      currentGlow += (targetGlow - currentGlow) * 0.08;
+      ripplePhase += 0.035;
+
+      gl.uniform1f(uTimeLoc, ripplePhase);
+      gl.uniform1f(uGlowLoc, currentGlow);
+      gl.uniform2f(uMouseLoc, mouseNormX, mouseNormY);
+      gl.uniform1f(uMouseActiveLoc, isMouseInside && hoveredRef.current ? 1.0 : 0.0);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       animId = requestAnimationFrame(render);
