@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Project, getLocalized } from '../data/projects';
 import { SOFTWARE_MAP } from '../data/software';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
+import { FullscreenLightbox } from './FullscreenLightbox';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { getAssetUrl } from '../utils/asset';
@@ -24,16 +25,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
   const { lang } = useLanguage();
   const t = TRANSLATIONS.projectModal;
   const [copied, setCopied] = useState(false);
-  const [isZoomed, setIsZoomed] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [activeMedia, setActiveMedia] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isLightboxOpen) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isLightboxOpen]);
 
   // Lock body scroll while modal is open
   useEffect(() => {
@@ -146,24 +147,36 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
             </div>
           )}
 
-          {/* Hero Banner / High-Res Full Image */}
-          <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/60 shadow-2xl group">
+          {/* Hero Banner / High-Res Full Image with Fullscreen Zoom Trigger */}
+          <div
+            onClick={() => setIsLightboxOpen(true)}
+            className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/60 shadow-2xl group cursor-zoom-in"
+          >
             <img
               src={displayImage}
               alt={getLocalized(project.title, lang)}
-              className={`w-full max-h-[65vh] object-contain mx-auto transition-transform duration-300 ${
-                isZoomed ? 'scale-125 cursor-zoom-out' : 'cursor-zoom-in'
-              }`}
-              onClick={() => setIsZoomed(!isZoomed)}
+              className="w-full max-h-[65vh] object-contain mx-auto transition-transform duration-300 group-hover:scale-[1.01]"
             />
+
+            {/* Hover overlay hint */}
+            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-black/80 backdrop-blur-xl border border-white/25 text-white text-xs sm:text-sm font-mono shadow-2xl scale-95 group-hover:scale-100 transition-transform">
+                <Maximize2 size={16} className="text-amber-400" />
+                <span>{lang === 'ru' ? 'Развернуть на весь экран (Зум & Панорама)' : 'Fullscreen View (Zoom & Pan)'}</span>
+              </div>
+            </div>
 
             <div className="absolute bottom-3 right-3 z-10">
               <button
-                onClick={() => setIsZoomed(!isZoomed)}
-                title={t.clickToZoom[lang]}
-                className="p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 text-white/80 hover:text-white transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLightboxOpen(true);
+                }}
+                title={lang === 'ru' ? 'Развернуть на весь экран' : 'Fullscreen'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/75 hover:bg-black/90 backdrop-blur-md border border-white/25 text-white/90 hover:text-white transition-all shadow-lg text-xs font-mono"
               >
-                <Maximize2 size={14} />
+                <Maximize2 size={14} className="text-amber-400" />
+                <span>{lang === 'ru' ? 'На весь экран' : 'Fullscreen'}</span>
               </button>
             </div>
           </div>
@@ -335,6 +348,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
           )}
         </div>
       </div>
+
+      {/* Fullscreen Edge-to-Edge Pan & Zoom Lightbox */}
+      <FullscreenLightbox
+        isOpen={isLightboxOpen}
+        images={allMediaImages}
+        currentIndex={Math.max(0, allMediaImages.indexOf(displayImage))}
+        title={getLocalized(project.title, lang)}
+        onClose={() => setIsLightboxOpen(false)}
+        onSelectIndex={(idx) => setActiveMedia(allMediaImages[idx])}
+      />
     </div>
   );
 };
