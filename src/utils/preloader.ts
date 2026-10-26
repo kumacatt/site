@@ -16,13 +16,10 @@ export const CRITICAL_PORTAL_ARTWORKS = [
   getAssetUrl('/1_gamepromo_cover.png'),
   getAssetUrl('/1_MORPHINBeta_web.jpg'),
 
-  // Design Portal Artworks
-  getAssetUrl('/2_kashtan_web.jpg'),
+  // Design Portal Artworks (Selected showcase)
   getAssetUrl('/2_kashtan3doffice_P.png'),
-  getAssetUrl('/2_Polyana_web.jpg'),
-  getAssetUrl('/2_env_web.jpg'),
-  getAssetUrl('/2_sity_env.png'),
-  getAssetUrl('/2_blender-work_web.jpg'),
+  getAssetUrl('/2_env_P.png'),
+  getAssetUrl('/2_Polyana_P.png'),
 ];
 
 // Helper to preload a single image with caching

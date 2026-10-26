@@ -32,12 +32,9 @@ const GAMEDEV_PORTAL_ARTWORKS = [
 ].map(getAssetUrl);
 
 const DESIGN_PORTAL_ARTWORKS = [
-  '/2_kashtan_web.jpg',
   '/2_kashtan3doffice_P.png',
-  '/2_Polyana_web.jpg',
-  '/2_env_web.jpg',
-  '/2_sity_env.png',
-  '/2_blender-work_web.jpg'
+  '/2_env_P.png',
+  '/2_Polyana_P.png'
 ].map(getAssetUrl);
 
 interface PortalViewProps {
