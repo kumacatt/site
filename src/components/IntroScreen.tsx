@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
 import { RealmType } from '../data/projects';
+import { CRITICAL_PORTAL_ARTWORKS, preloadImage, preloadFonts } from '../utils/preloader';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -57,15 +58,92 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
   const scrollEnergyRef = useRef(0);
   const currentGlowRef = useRef(0);
 
+  // Asset Preloading State & Synchronization
+  const [isLoaded, setIsLoaded] = useState(false);
+  const isLoadedRef = useRef(false);
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const [pendingRealm, setPendingRealm] = useState<RealmType | 'portal' | null>(null);
+  const pendingRealmRef = useRef<RealmType | 'portal' | null>(null);
+
   // Trigger enter smoothly with dither dissolve
   const handleProceed = (targetRealm?: RealmType) => {
     if (isFadingRef.current) return;
+    if (!isLoadedRef.current) {
+      // User interacted while assets are still caching: remember intent and enter instantly when ready
+      pendingRealmRef.current = targetRealm || 'portal';
+      setPendingRealm(targetRealm || 'portal');
+      return;
+    }
     isFadingRef.current = true;
     setIsFading(true);
     setTimeout(() => {
       onEnter(targetRealm);
     }, 700);
   };
+
+  // Critical Assets Preload Effect
+  useEffect(() => {
+    let mounted = true;
+    let loadedCount = 0;
+    const totalAssets = CRITICAL_PORTAL_ARTWORKS.length + 1; // artworks + fonts
+
+    let targetProgress = 0;
+    let animId: number;
+
+    const tickProgress = () => {
+      setDisplayProgress((prev) => {
+        if (prev >= 100) return 100;
+        // Ease towards targetProgress with minimum velocity
+        const delta = targetProgress - prev;
+        const step = Math.max(0.7, delta * 0.16);
+        const next = Math.min(100, prev + step);
+        if (next >= 99.4 && targetProgress >= 100) {
+          if (!isLoadedRef.current) {
+            isLoadedRef.current = true;
+            setIsLoaded(true);
+            // If user clicked or pressed key during load, proceed immediately
+            if (pendingRealmRef.current) {
+              const target = pendingRealmRef.current === 'portal' ? undefined : pendingRealmRef.current;
+              setTimeout(() => {
+                handleProceed(target);
+              }, 180);
+            }
+          }
+          return 100;
+        }
+        return next;
+      });
+      animId = requestAnimationFrame(tickProgress);
+    };
+
+    animId = requestAnimationFrame(tickProgress);
+
+    const onItemLoaded = () => {
+      if (!mounted) return;
+      loadedCount++;
+      targetProgress = Math.min(100, Math.round((loadedCount / totalAssets) * 100));
+    };
+
+    // Preload fonts
+    preloadFonts().finally(onItemLoaded);
+
+    // Preload critical artworks
+    CRITICAL_PORTAL_ARTWORKS.forEach((src) => {
+      preloadImage(src).finally(onItemLoaded);
+    });
+
+    // Safety timeout: 4.5 seconds max
+    const safetyTimeout = setTimeout(() => {
+      if (!mounted) return;
+      targetProgress = 100;
+    }, 4500);
+
+    return () => {
+      mounted = false;
+      cancelAnimationFrame(animId);
+      clearTimeout(safetyTimeout);
+    };
+  }, []);
 
   // Requires a bit stronger/firmer scrolling to skip, charging dither energy as you scroll
   const addScrollDelta = (delta: number) => {
@@ -454,7 +532,11 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
               handleProceed('gamedev');
             }}
             title={lang === 'ru' ? 'Сфера GameDev' : 'GameDev realm'}
-            className="group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono text-white/50 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all duration-300 cursor-pointer"
+            className={`group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono border transition-all duration-300 cursor-pointer ${
+              pendingRealm === 'gamedev'
+                ? 'text-amber-300 bg-amber-500/20 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.4)] scale-105'
+                : 'text-white/50 hover:text-amber-300 hover:bg-amber-500/10 border-transparent hover:border-amber-500/30'
+            }`}
           >
             <span className="font-medium tracking-wider">{t.roleGames[lang]}</span>
           </button>
@@ -467,7 +549,11 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
               handleProceed('gamedev');
             }}
             title={lang === 'ru' ? 'Сфера CG' : 'CG realm'}
-            className="group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono text-white/50 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all duration-300 cursor-pointer"
+            className={`group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono border transition-all duration-300 cursor-pointer ${
+              pendingRealm === 'gamedev'
+                ? 'text-amber-300 bg-amber-500/20 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.4)] scale-105'
+                : 'text-white/50 hover:text-amber-300 hover:bg-amber-500/10 border-transparent hover:border-amber-500/30'
+            }`}
           >
             <span className="font-medium tracking-wider">{t.roleCg[lang]}</span>
           </button>
@@ -480,20 +566,47 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
               handleProceed('design');
             }}
             title={lang === 'ru' ? 'Сфера Дизайн' : 'Design realm'}
-            className="group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono text-white/50 hover:text-purple-300 hover:bg-purple-500/10 border border-transparent hover:border-purple-500/30 transition-all duration-300 cursor-pointer"
+            className={`group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono border transition-all duration-300 cursor-pointer ${
+              pendingRealm === 'design'
+                ? 'text-purple-300 bg-purple-500/20 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.4)] scale-105'
+                : 'text-white/50 hover:text-purple-300 hover:bg-purple-500/10 border-transparent hover:border-purple-500/30'
+            }`}
           >
             <span className="font-medium tracking-wider">{t.roleDesign[lang]}</span>
           </button>
         </div>
       </div>
 
-      {/* Bottom Call to Action ("Press any key") — Clean luxury glass without icons */}
-      <div className="relative z-20 flex flex-col items-center pb-6 pointer-events-auto">
-        <div className="group flex items-center px-8 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 hover:border-amber-500/40 backdrop-blur-xl text-xs sm:text-sm font-mono text-white transition-all shadow-[0_4px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_35px_rgba(245,158,11,0.25)]">
-          <span className="font-medium text-white/90 group-hover:text-amber-200 transition-colors">
-            {t.pressAnyKey[lang]}
-          </span>
-        </div>
+      {/* Bottom Call to Action & Smart Preloader Indicator */}
+      <div className="relative z-20 flex flex-col items-center pb-6 pointer-events-auto min-h-[58px] justify-center">
+        {!isLoaded ? (
+          <div className="flex flex-col items-center gap-2.5 transition-all duration-300">
+            {/* Cyber Dither Progress Status */}
+            <div className="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-xl">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs font-mono uppercase tracking-widest text-amber-200/80">
+                {pendingRealm ? t.loadingWait[lang] : t.loadingAssets[lang]}
+              </span>
+              <span className="text-xs font-mono font-bold text-white/90 min-w-[36px] text-right">
+                {Math.round(displayProgress)}%
+              </span>
+            </div>
+
+            {/* Dither Progress Bar */}
+            <div className="w-48 sm:w-64 h-1.5 bg-white/10 rounded-full overflow-hidden p-[1px] border border-white/10 backdrop-blur-md">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500/70 via-amber-400 to-amber-300 rounded-full transition-all duration-150 ease-out shadow-[0_0_12px_rgba(245,158,11,0.6)]"
+                style={{ width: `${displayProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="group flex items-center px-8 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 hover:border-amber-500/40 backdrop-blur-xl text-xs sm:text-sm font-mono text-white transition-all shadow-[0_4px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_35px_rgba(245,158,11,0.25)] cursor-pointer">
+            <span className="font-medium text-white/90 group-hover:text-amber-200 transition-colors">
+              {t.pressAnyKey[lang]}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

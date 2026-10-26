@@ -14,6 +14,14 @@ export const TRANSLATIONS = {
       ru: 'Нажмите в любом месте или любую клавишу',
       en: 'Click anywhere or press any key'
     },
+    loadingAssets: {
+      ru: 'Инициализация систем',
+      en: 'Initializing systems'
+    },
+    loadingWait: {
+      ru: 'Подготовка медиа',
+      en: 'Loading media assets'
+    },
     clickHint: {
       ru: 'Клик, клавиша или скролл для входа',
       en: 'Click, keypress or scroll to enter'
