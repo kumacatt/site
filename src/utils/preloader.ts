@@ -1,25 +1,29 @@
 import { getAssetUrl } from './asset';
 
-// 1. Critical Tier 1 Assets: Portal Slideshow Artworks & Key Media
+// 1. Critical Tier 1 Assets: Initial Portal Slideshow Artworks & Key Media
 export const CRITICAL_PORTAL_ARTWORKS = [
-  // Gamedev Portal Artworks
+  // Gamedev Portal Artworks (Fast web-optimized starter slides)
   getAssetUrl('/1_fragile_screen (1).jpg'),
   getAssetUrl('/1_fragile_screen (2).jpg'),
   getAssetUrl('/1_fragile_screen (3).jpg'),
   getAssetUrl('/1_Sinclair_web.jpg'),
   getAssetUrl('/1_speedsculpt_jab_P.png'),
-  getAssetUrl('/1_speedsculpt_mushroom.png'),
   getAssetUrl('/1_fumel_web.jpg'),
   getAssetUrl('/1_whintercore_web.jpg'),
   getAssetUrl('/1_fishing_web.jpg'),
-  getAssetUrl('/1_nitted_P.png'),
-  getAssetUrl('/1_gamepromo_cover.png'),
   getAssetUrl('/1_MORPHINBeta_web.jpg'),
 
   // Design Portal Artworks (Selected showcase)
   getAssetUrl('/2_kashtan3doffice_P.png'),
   getAssetUrl('/2_env_P.png'),
   getAssetUrl('/2_Polyana_P.png'),
+];
+
+// Secondary portal artworks preloaded in background queue
+export const SECONDARY_PORTAL_ARTWORKS = [
+  getAssetUrl('/1_speedsculpt_mushroom.png'),
+  getAssetUrl('/1_nitted_P.png'),
+  getAssetUrl('/1_gamepromo_cover.png'),
 ];
 
 // Helper to preload a single image with caching

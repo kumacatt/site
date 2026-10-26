@@ -10,7 +10,7 @@ import { AmbientBackground } from './components/AmbientBackground';
 import { CustomCursor } from './components/CustomCursor';
 import { DitherTuner } from './components/DitherTuner';
 import { PROJECTS } from './data/projects';
-import { startBackgroundPreload } from './utils/preloader';
+import { startBackgroundPreload, SECONDARY_PORTAL_ARTWORKS } from './utils/preloader';
 
 export const App: React.FC = () => {
   const { route, openProject, closeProject, setRealm } = useHashRoute();
@@ -19,7 +19,7 @@ export const App: React.FC = () => {
   // Progressive background preloader: Cache project grid thumbnails in idle slots
   useEffect(() => {
     const covers = PROJECTS.map((p) => p.cover).filter(Boolean);
-    startBackgroundPreload(covers);
+    startBackgroundPreload([...SECONDARY_PORTAL_ARTWORKS, ...covers]);
   }, []);
   
   // Track intro screen state (shows on first visit to root/portal unless direct link was used)

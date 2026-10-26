@@ -88,31 +88,39 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
     const totalAssets = CRITICAL_PORTAL_ARTWORKS.length + 1; // artworks + fonts
 
     let targetProgress = 0;
+    let currentDisplay = 0;
     let animId: number;
 
+    const finalizeLoading = () => {
+      if (isLoadedRef.current) return;
+      isLoadedRef.current = true;
+      setIsLoaded(true);
+      setDisplayProgress(100);
+
+      // If user clicked or pressed key during load, proceed immediately
+      if (pendingRealmRef.current) {
+        const target = pendingRealmRef.current === 'portal' ? undefined : pendingRealmRef.current;
+        setTimeout(() => {
+          if (mounted) handleProceed(target);
+        }, 150);
+      }
+    };
+
     const tickProgress = () => {
-      setDisplayProgress((prev) => {
-        if (prev >= 100) return 100;
-        // Ease towards targetProgress with minimum velocity
-        const delta = targetProgress - prev;
-        const step = Math.max(0.7, delta * 0.16);
-        const next = Math.min(100, prev + step);
-        if (next >= 99.4 && targetProgress >= 100) {
-          if (!isLoadedRef.current) {
-            isLoadedRef.current = true;
-            setIsLoaded(true);
-            // If user clicked or pressed key during load, proceed immediately
-            if (pendingRealmRef.current) {
-              const target = pendingRealmRef.current === 'portal' ? undefined : pendingRealmRef.current;
-              setTimeout(() => {
-                handleProceed(target);
-              }, 180);
-            }
-          }
-          return 100;
-        }
-        return next;
-      });
+      if (!mounted) return;
+
+      if (currentDisplay < targetProgress) {
+        const delta = targetProgress - currentDisplay;
+        const step = Math.max(0.6, delta * 0.16);
+        currentDisplay = Math.min(targetProgress, currentDisplay + step);
+        setDisplayProgress(Math.round(currentDisplay));
+      }
+
+      if (targetProgress >= 100 && currentDisplay >= 99.4) {
+        finalizeLoading();
+        return;
+      }
+
       animId = requestAnimationFrame(tickProgress);
     };
 
@@ -121,7 +129,13 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
     const onItemLoaded = () => {
       if (!mounted) return;
       loadedCount++;
-      targetProgress = Math.min(100, Math.round((loadedCount / totalAssets) * 100));
+      const pct = Math.min(100, Math.round((loadedCount / totalAssets) * 100));
+      if (pct > targetProgress) {
+        targetProgress = pct;
+      }
+      if (loadedCount >= totalAssets) {
+        targetProgress = 100;
+      }
     };
 
     // Preload fonts
@@ -132,11 +146,14 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
       preloadImage(src).finally(onItemLoaded);
     });
 
-    // Safety timeout: 4.5 seconds max
+    // Safety timeout: 3.5 seconds max - guarantees user can NEVER be stuck
     const safetyTimeout = setTimeout(() => {
       if (!mounted) return;
       targetProgress = 100;
-    }, 4500);
+      setTimeout(() => {
+        if (mounted) finalizeLoading();
+      }, 300);
+    }, 3500);
 
     return () => {
       mounted = false;
