@@ -344,10 +344,10 @@ void main() {
   float speed = length(vel);
 
   float screenAspect = max(0.01, u_resolution.x) / max(0.01, u_resolution.y);
-  vec2 disp = vel * (u_distortion * 0.0022);
+  vec2 disp = vel * (u_distortion * 0.0011);
   disp.x /= screenAspect;
 
-  float chrom = u_chromatic * 0.45;
+  float chrom = u_chromatic * 0.35;
 
   // Aspect-corrected displacement for image 0 without horizontal stretching
   float imgAspect0 = max(0.01, u_imgSize0.x) / max(0.01, u_imgSize0.y);
@@ -681,16 +681,16 @@ const PortalRefractionCanvas: React.FC<{
         // Speed normalized to ~60fps frame displacement
         const vNorm = (dist / dt) * 16.67;
 
-        // Dynamic speed-dependent wave radius: faster mouse = broader splash!
-        const baseRadius = currentSettings.waveRadius || 10;
-        const speedFactor = 0.35 + 1.85 * (1 - Math.exp(-vNorm / 3.0));
-        const radius = baseRadius * speedFactor;
+        // Portal card: refined, localized wave radius (proportional to half-screen card)
+        const portalBaseRadius = (currentSettings.waveRadius || 10) * 0.38;
+        const speedFactor = 0.4 + 1.15 * (1 - Math.exp(-vNorm / 3.0));
+        const radius = portalBaseRadius * speedFactor;
 
-        // Dynamic force: energetic flicks impart much stronger velocity impulse
-        const force = Math.min(5.5, 0.6 + vNorm * 0.45);
+        // Delicate, tactile fluid force
+        const force = Math.min(3.0, 0.35 + vNorm * 0.22);
 
         // Multi-step interpolation ensures smooth, continuous fluid trails even during fast flicks
-        const steps = Math.min(22, Math.max(1, Math.ceil(dist / Math.max(1.2, radius * 0.4))));
+        const steps = Math.min(18, Math.max(1, Math.ceil(dist / Math.max(1.0, radius * 0.4))));
         const stepDx = dx / steps;
         const stepDy = dy / steps;
 
@@ -712,9 +712,9 @@ const PortalRefractionCanvas: React.FC<{
               if (dSq < radius * radius) {
                 const falloff = 1 - Math.sqrt(dSq) / radius;
                 const idx = r + ix;
-                dens[idx] = Math.min(2.5, dens[idx] + falloff * 0.95);
-                u[idx] += dx * force * falloff * 0.16;
-                v[idx] += dy * force * falloff * 0.16;
+                dens[idx] = Math.min(1.6, dens[idx] + falloff * 0.55);
+                u[idx] += dx * force * falloff * 0.09;
+                v[idx] += dy * force * falloff * 0.09;
               }
             }
           }
@@ -732,10 +732,11 @@ const PortalRefractionCanvas: React.FC<{
       lastSimTime = 0;
     };
 
-    // Radial Click Shockwave on Design Portal Card
+    // Refined Click Shockwave on Design Portal Card
     const triggerSplash = (cx: number, cy: number, strength = 1.0) => {
-      const radius = Math.min(simH * 0.45, (currentSettings.waveRadius || 10) * 1.8 * strength);
-      const force = 6.0 * strength;
+      const portalBaseRadius = (currentSettings.waveRadius || 10) * 0.42;
+      const radius = Math.min(simH * 0.22, portalBaseRadius * 1.35 * strength);
+      const force = 3.5 * strength;
       const minX = Math.max(1, Math.floor(cx - radius));
       const maxX = Math.min(simW - 2, Math.ceil(cx + radius));
       const minY = Math.max(1, Math.floor(cy - radius));
@@ -755,7 +756,7 @@ const PortalRefractionCanvas: React.FC<{
             const idx = r + ix;
             u[idx] += normX * force * waveProfile;
             v[idx] += normY * force * waveProfile;
-            dens[idx] = Math.min(3.0, dens[idx] + waveProfile * 2.2 * strength);
+            dens[idx] = Math.min(1.8, dens[idx] + waveProfile * 1.2 * strength);
           }
         }
       }
@@ -770,7 +771,7 @@ const PortalRefractionCanvas: React.FC<{
 
       const simX = normX * simW;
       const simY = normY * simH;
-      triggerSplash(simX, simY, 1.4);
+      triggerSplash(simX, simY, 1.2);
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
@@ -836,13 +837,13 @@ const PortalRefractionCanvas: React.FC<{
       gl.uniform2f(uImgSize1Loc, nxtImg?.naturalWidth || 1920, nxtImg?.naturalHeight || 1080);
 
       // Gentle ambient liquid ripple when hovering
-      if (hovered && Math.random() < 0.04) {
+      if (hovered && Math.random() < 0.015) {
         const ax = simW * 0.25 + Math.random() * simW * 0.5;
         const ay = simH * 0.25 + Math.random() * simH * 0.5;
         const angle = Math.random() * Math.PI * 2;
-        const fx = Math.cos(angle) * 1.8;
-        const fy = Math.sin(angle) * 1.8;
-        const radius = 4.0;
+        const fx = Math.cos(angle) * 1.0;
+        const fy = Math.sin(angle) * 1.0;
+        const radius = 2.5;
         const minX = Math.max(1, Math.floor(ax - radius));
         const maxX = Math.min(simW - 2, Math.ceil(ax + radius));
         const minY = Math.max(1, Math.floor(ay - radius));
@@ -854,9 +855,9 @@ const PortalRefractionCanvas: React.FC<{
             if (dSq < radius * radius) {
               const falloff = 1 - Math.sqrt(dSq) / radius;
               const idx = r + ix;
-              u[idx] += fx * falloff * 0.35;
-              v[idx] += fy * falloff * 0.35;
-              dens[idx] = Math.min(2.0, dens[idx] + falloff * 0.6);
+              u[idx] += fx * falloff * 0.20;
+              v[idx] += fy * falloff * 0.20;
+              dens[idx] = Math.min(1.2, dens[idx] + falloff * 0.35);
             }
           }
         }
@@ -873,7 +874,7 @@ const PortalRefractionCanvas: React.FC<{
 
       project(u, v, u_prev, v_prev);
 
-      const decay = currentSettings.dissipation || 0.985;
+      const decay = 0.965;
       for (let i = 0; i < simSize; i++) {
         u[i] *= decay;
         v[i] *= decay;
@@ -899,10 +900,10 @@ const PortalRefractionCanvas: React.FC<{
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, tex1);
 
-      // Uniform parameters
-      gl.uniform1f(uDistortionLoc, currentSettings.distortion);
-      gl.uniform1f(uChromaticLoc, currentSettings.chromatic);
-      gl.uniform1f(uSpecularLoc, currentSettings.specular);
+      // Uniform parameters calibrated for half-card portal elegance
+      gl.uniform1f(uDistortionLoc, currentSettings.distortion * 0.60);
+      gl.uniform1f(uChromaticLoc, currentSettings.chromatic * 0.60);
+      gl.uniform1f(uSpecularLoc, currentSettings.specular * 0.70);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       animId = requestAnimationFrame(render);
