@@ -349,6 +349,45 @@ const RAW_PROJECTS: Project[] = [
       en: '2D character fan-concept for ArtStation: silhouette study, form exploration, and detailed rendering in Clip Studio Paint and Photoshop.'
     }
   },
+  {
+    id: 'novel-characters',
+    title: {
+      ru: 'Визуальная новелла — Персонажи',
+      en: 'Visual Novel — Character Concepts'
+    },
+    realm: 'gamedev',
+    type: 'case',
+    span: 'horizontal',
+    subcategories: ['2D Art', 'Game Dev', 'Concept Art', 'Character Design'],
+    software: ['photoshop', 'clipstd'],
+    role: {
+      ru: '2D-концепт художник',
+      en: '2D Concept Artist'
+    },
+    year: '2022',
+    cover: '/1_novel_P.png',
+    fullImage: '/1_novel_F.png',
+    additionalImages: ['/1_novel2_F.png'],
+    shortDescription: {
+      ru: 'Поиски внешнего вида и визуального стиля персонажей для визуальной новеллы (архив 2022 года): концепт-арт, типажи, силуэты и дизайн костюмов.',
+      en: 'Visual exploration and character development for a visual novel (2022 archive): concept art, silhouette studies, costume designs, and personality expression.'
+    },
+    article: {
+      overview: {
+        ru: 'Концепт-арт и поиски внешнего вида ключевых персонажей для визуальной новеллы (работа 2022 года). Основной фокус проекта — поиск выразительных типажей, характерных силуэтов, проработка костюмов и передача индивидуальности каждого героя через визуальные детали и пластику.',
+        en: 'Concept art and visual development of key characters for a visual novel (2022 archive). The exploration focused on establishing distinctive character traits, expressive anatomy, stylized costumes, and communicating each hero\'s personality through silhouettes and visual details.'
+      },
+      specs: [
+        {
+          label: { ru: 'Проект', en: 'Project' },
+          value: { ru: 'Визуальная новелла (Поиски персонажей)', en: 'Visual Novel Character Concepts' }
+        },
+        { label: { ru: 'Год', en: 'Year' }, value: '2022' },
+        { label: { ru: 'Формат', en: 'Format' }, value: '2D Concept Art / Character Design' },
+        { label: { ru: 'Инструменты', en: 'Tools' }, value: 'Adobe Photoshop, Clip Studio Paint' }
+      ]
+    }
+  },
 
   // ================= DESIGN & IDENTITY (2_...) =================
   {
