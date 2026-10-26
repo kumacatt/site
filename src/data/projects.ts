@@ -369,13 +369,13 @@ const RAW_PROJECTS: Project[] = [
     fullImage: '/1_novel_F.png',
     additionalImages: ['/1_novel2_F.png'],
     shortDescription: {
-      ru: 'Поиски внешнего вида и визуального стиля персонажей для визуальной новеллы (архив 2022 года): концепт-арт, типажи, силуэты и дизайн костюмов.',
-      en: 'Visual exploration and character development for a visual novel (2022 archive): concept art, silhouette studies, costume designs, and personality expression.'
+      ru: 'Поиски внешнего вида и визуального стиля персонажей для визуальной новеллы (архив 2022 года): концепт-арт голов, типажи, черты лица, причёски и мимика.',
+      en: 'Visual exploration and character development for a visual novel (2022 archive): concept art, portrait studies, facial features, hairstyles, and personality expression.'
     },
     article: {
       overview: {
-        ru: 'Концепт-арт и поиски внешнего вида ключевых персонажей для визуальной новеллы (работа 2022 года). Основной фокус проекта — поиск выразительных типажей, характерных силуэтов, проработка костюмов и передача индивидуальности каждого героя через визуальные детали и пластику.',
-        en: 'Concept art and visual development of key characters for a visual novel (2022 archive). The exploration focused on establishing distinctive character traits, expressive anatomy, stylized costumes, and communicating each hero\'s personality through silhouettes and visual details.'
+        ru: 'Концепт-арт и поиски внешнего вида ключевых персонажей для визуальной новеллы (работа 2022 года). Основной фокус проекта — исследование выразительных типажей, портретов, характерных черт лица, эмоций и причёсок, передающих индивидуальность и настроение каждого героя.',
+        en: 'Concept art and visual exploration of key characters for a visual novel (2022 archive). Focused on establishing distinctive facial traits, portrait archetypes, hairstyles, expressions, and communicating each hero\'s personality and mood.'
       },
       specs: [
         {
@@ -383,7 +383,7 @@ const RAW_PROJECTS: Project[] = [
           value: { ru: 'Визуальная новелла (Поиски персонажей)', en: 'Visual Novel Character Concepts' }
         },
         { label: { ru: 'Год', en: 'Year' }, value: '2022' },
-        { label: { ru: 'Формат', en: 'Format' }, value: '2D Concept Art / Character Design' },
+        { label: { ru: 'Формат', en: 'Format' }, value: '2D Concept Art / Character Portraits' },
         { label: { ru: 'Инструменты', en: 'Tools' }, value: 'Adobe Photoshop, Clip Studio Paint' }
       ]
     }
