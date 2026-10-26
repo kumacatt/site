@@ -50,7 +50,20 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
         {/* Center: Realm Toggle Pill — ALWAYS VISIBLE on both Mobile & Desktop */}
         <div className="flex items-center p-1 rounded-2xl bg-black/65 backdrop-blur-2xl border border-white/15 shadow-2xl mx-1 sm:mx-2 flex-shrink-0">
           <button
-            onClick={() => onSelectRealm('gamedev')}
+            onClick={(e) => {
+              if (currentRealm !== 'gamedev') {
+                window.dispatchEvent(
+                  new CustomEvent('kum-realm-transition', {
+                    detail: {
+                      toRealm: 'gamedev',
+                      clientX: e.clientX,
+                      clientY: e.clientY,
+                    },
+                  })
+                );
+              }
+              onSelectRealm('gamedev');
+            }}
             className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl text-xs font-mono transition-all duration-300 ${
               currentRealm === 'gamedev'
                 ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-md font-semibold'
@@ -65,7 +78,20 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
           <div className="w-px h-4 bg-white/10 mx-0.5 sm:mx-1 flex-shrink-0" />
 
           <button
-            onClick={() => onSelectRealm('design')}
+            onClick={(e) => {
+              if (currentRealm !== 'design') {
+                window.dispatchEvent(
+                  new CustomEvent('kum-realm-transition', {
+                    detail: {
+                      toRealm: 'design',
+                      clientX: e.clientX,
+                      clientY: e.clientY,
+                    },
+                  })
+                );
+              }
+              onSelectRealm('design');
+            }}
             className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl text-xs font-mono transition-all duration-300 ${
               currentRealm === 'design'
                 ? 'bg-purple-500/25 text-purple-300 border border-purple-500/40 shadow-md font-semibold'

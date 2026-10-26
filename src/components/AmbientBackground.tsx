@@ -32,6 +32,9 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Track previous realm for smooth fallback shockwaves
+  const prevRealmRef = useRef<RealmType | null>(currentRealm);
+
   // Ensure playback starts reliably on mount and realm switch
   useEffect(() => {
     if (currentRealm === 'design' && designVideoRef.current) {
@@ -39,6 +42,19 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
     } else if (gamedevVideoRef.current) {
       gamedevVideoRef.current.play().catch(() => {});
     }
+
+    if (prevRealmRef.current && prevRealmRef.current !== currentRealm) {
+      window.dispatchEvent(
+        new CustomEvent('kum-realm-transition', {
+          detail: {
+            toRealm: currentRealm,
+            clientX: window.innerWidth * 0.5,
+            clientY: 52,
+          },
+        })
+      );
+    }
+    prevRealmRef.current = currentRealm;
   }, [currentRealm]);
 
   const isDesign = currentRealm === 'design';
@@ -75,9 +91,24 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         <source src={getAssetUrl('/2_Polyana_F.mp4')} type="video/mp4" />
       </video>
 
-      {/* 3. Realm Fields: GameDev Retro Bayer Dither vs Design Full-Res WebGL Refraction */}
-      {!isDesign && <GamedevDitherField />}
-      {isDesign && <DesignRefractionField videoRef={designVideoRef} canvasRef={designCanvasRef} />}
+      {/* 3. Realm Fields: Both remain mounted with cross-fading opacity for fluid transition shockwaves */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+          !isDesign ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
+        }`}
+        style={{ willChange: 'opacity' }}
+      >
+        <GamedevDitherField active={!isDesign} />
+      </div>
+
+      <div
+        className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+          isDesign ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
+        }`}
+        style={{ willChange: 'opacity' }}
+      >
+        <DesignRefractionField videoRef={designVideoRef} canvasRef={designCanvasRef} active={isDesign} />
+      </div>
 
       {/* Dreamlike Ambient Color Orbs matching the active realm */}
       <div

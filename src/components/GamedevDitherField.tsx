@@ -12,8 +12,17 @@ const BAYER_4X4 = [
 // Screen to canvas downscaling factor (retro pixel scale for GameDev)
 const PIXEL_SCALE = 4;
 
-export const GamedevDitherField: React.FC = () => {
+interface GamedevDitherFieldProps {
+  active?: boolean;
+}
+
+export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const activeRef = useRef(active);
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -172,6 +181,7 @@ export const GamedevDitherField: React.FC = () => {
 
     // Mouse Injection (Isotropic in physical screen space)
     const handleMouseMove = (e: MouseEvent) => {
+      if (activeRef.current === false) return;
       const simX = (e.clientX / window.innerWidth) * simW;
       const simY = (e.clientY / window.innerHeight) * simH;
 
@@ -245,7 +255,102 @@ export const GamedevDitherField: React.FC = () => {
       lastSimTime = 0;
     };
 
+    // Radial Click Dither Shockwave
+    const triggerSplash = (cx: number, cy: number, strength = 1.0) => {
+      const radius = Math.min(simH * 0.45, (currentSettings.fluidRadius || 3.5) * 2.4 * strength);
+      const force = 5.2 * strength;
+      const minX = Math.max(1, Math.floor(cx - radius));
+      const maxX = Math.min(simW - 2, Math.ceil(cx + radius));
+      const minY = Math.max(1, Math.floor(cy - radius));
+      const maxY = Math.min(simH - 2, Math.ceil(cy + radius));
+
+      for (let iy = minY; iy <= maxY; iy++) {
+        const r = iy * simW;
+        const dy = iy - cy;
+        for (let ix = minX; ix <= maxX; ix++) {
+          const dx = ix - cx;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 0.01 && dist < radius) {
+            const normDist = dist / radius;
+            const waveProfile = Math.sin(normDist * Math.PI);
+            const normX = dx / dist;
+            const normY = dy / dist;
+            const idx = r + ix;
+            u[idx] += normX * force * waveProfile;
+            v[idx] += normY * force * waveProfile;
+            dens[idx] = Math.min(3.0, dens[idx] + waveProfile * 2.6 * strength);
+          }
+        }
+      }
+    };
+
+    // Expanding Realm Transition Wave (Retro cybernetic energy surge)
+    const triggerTransitionShockwave = (normX = 0.5, normY = 0.08) => {
+      const cx = normX * simW;
+      const cy = normY * simH;
+      let frame = 0;
+      const totalFrames = 24;
+
+      const step = () => {
+        frame++;
+        const progress = frame / totalFrames;
+        const radius = 6 + progress * (simH * 1.15);
+        const force = 7.5 * (1 - progress * 0.4);
+        const densityStrength = 3.2 * (1 - progress * 0.35);
+
+        const ringThickness = 5.0 + progress * 2.5;
+        const minX = Math.max(1, Math.floor(cx - radius - ringThickness));
+        const maxX = Math.min(simW - 2, Math.ceil(cx + radius + ringThickness));
+        const minY = Math.max(1, Math.floor(cy - radius - ringThickness));
+        const maxY = Math.min(simH - 2, Math.ceil(cy + radius + ringThickness));
+
+        for (let iy = minY; iy <= maxY; iy++) {
+          const r = iy * simW;
+          const dy = iy - cy;
+          for (let ix = minX; ix <= maxX; ix++) {
+            const dx = ix - cx;
+            const dist = Math.hypot(dx, dy);
+            const ringDist = Math.abs(dist - radius);
+            if (ringDist < ringThickness && dist > 0.01) {
+              const falloff = 1 - ringDist / ringThickness;
+              const smoothFalloff = falloff * falloff;
+              const normX = dx / dist;
+              const normY = dy / dist;
+              const idx = r + ix;
+              u[idx] += normX * force * smoothFalloff * 0.24;
+              v[idx] += normY * force * smoothFalloff * 0.24;
+              dens[idx] = Math.min(3.2, dens[idx] + densityStrength * smoothFalloff * 0.45);
+            }
+          }
+        }
+
+        if (frame < totalFrames) {
+          requestAnimationFrame(step);
+        }
+      };
+      step();
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (activeRef.current === false) return;
+      if ((e.target as HTMLElement)?.closest('.dither-tuner, input, select, textarea')) return;
+      const simX = (e.clientX / window.innerWidth) * simW;
+      const simY = (e.clientY / window.innerHeight) * simH;
+      triggerSplash(simX, simY, 1.4);
+    };
+
+    const handleTransition = (e: Event) => {
+      const customEvent = e as CustomEvent<{ toRealm: string; clientX?: number; clientY?: number }>;
+      if (customEvent.detail?.toRealm === 'gamedev') {
+        const nx = typeof customEvent.detail.clientX === 'number' ? customEvent.detail.clientX / window.innerWidth : 0.5;
+        const ny = typeof customEvent.detail.clientY === 'number' ? customEvent.detail.clientY / window.innerHeight : 0.08;
+        triggerTransitionShockwave(nx, ny);
+      }
+    };
+
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mousedown', handleMouseDown, { passive: true });
+    window.addEventListener('kum-realm-transition', handleTransition);
     document.addEventListener('mouseleave', handleMouseLeave);
 
     const makeColor = (r: number, g: number, b: number, a: number) => {
@@ -350,6 +455,8 @@ export const GamedevDitherField: React.FC = () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('kum-realm-transition', handleTransition);
       document.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('kum-dither-settings', handleDitherUpdate);
     };

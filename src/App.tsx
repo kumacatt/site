@@ -84,13 +84,15 @@ export const App: React.FC = () => {
         onToggleSettings={() => setIsTunerOpen(prev => !prev)}
       />
 
-      {/* Main Realm Body */}
+      {/* Main Realm Body with Smooth Transition */}
       <main className="relative z-10">
-        {route.currentRealm === 'gamedev' ? (
-          <GameDevView onOpenProject={(id) => openProject(id)} />
-        ) : (
-          <DesignView onOpenProject={(id) => openProject(id)} />
-        )}
+        <div key={route.currentRealm} className="realm-view-transition">
+          {route.currentRealm === 'gamedev' ? (
+            <GameDevView onOpenProject={(id) => openProject(id)} />
+          ) : (
+            <DesignView onOpenProject={(id) => openProject(id)} />
+          )}
+        </div>
       </main>
 
       {/* Deep-linkable Project Lightbox / Case Study Modal */}

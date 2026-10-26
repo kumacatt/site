@@ -732,7 +732,49 @@ const PortalRefractionCanvas: React.FC<{
       lastSimTime = 0;
     };
 
+    // Radial Click Shockwave on Design Portal Card
+    const triggerSplash = (cx: number, cy: number, strength = 1.0) => {
+      const radius = Math.min(simH * 0.45, (currentSettings.waveRadius || 10) * 1.8 * strength);
+      const force = 6.0 * strength;
+      const minX = Math.max(1, Math.floor(cx - radius));
+      const maxX = Math.min(simW - 2, Math.ceil(cx + radius));
+      const minY = Math.max(1, Math.floor(cy - radius));
+      const maxY = Math.min(simH - 2, Math.ceil(cy + radius));
+
+      for (let iy = minY; iy <= maxY; iy++) {
+        const r = iy * simW;
+        const dy = iy - cy;
+        for (let ix = minX; ix <= maxX; ix++) {
+          const dx = ix - cx;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 0.01 && dist < radius) {
+            const normDist = dist / radius;
+            const waveProfile = Math.sin(normDist * Math.PI);
+            const normX = dx / dist;
+            const normY = dy / dist;
+            const idx = r + ix;
+            u[idx] += normX * force * waveProfile;
+            v[idx] += normY * force * waveProfile;
+            dens[idx] = Math.min(3.0, dens[idx] + waveProfile * 2.2 * strength);
+          }
+        }
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const normX = (e.clientX - rect.left) / rect.width;
+      const normY = (e.clientY - rect.top) / rect.height;
+      if (normX < 0 || normX > 1 || normY < 0 || normY > 1) return;
+
+      const simX = normX * simW;
+      const simY = normY * simH;
+      triggerSplash(simX, simY, 1.4);
+    };
+
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mousedown', handleMouseDown, { passive: true });
     window.addEventListener('mouseleave', handleMouseLeave);
 
     const render = () => {
@@ -873,6 +915,7 @@ const PortalRefractionCanvas: React.FC<{
       clearInterval(slideTimer);
       window.removeEventListener('kum-refraction-settings', handleSettingsUpdate);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseleave', handleMouseLeave);
     };
   }, [images, intervalMs, hovered]);

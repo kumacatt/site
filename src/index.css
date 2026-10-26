@@ -81,3 +81,19 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+/* Smooth realm switch transition */
+@keyframes realmFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.realm-view-transition {
+  animation: realmFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
