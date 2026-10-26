@@ -6,7 +6,6 @@ import { ContactSection } from './ContactSection';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { ArrowDown, Gamepad2 } from 'lucide-react';
-import { getAssetUrl } from '../utils/asset';
 
 interface GameDevViewProps {
   onOpenProject: (id: string) => void;
@@ -47,10 +46,10 @@ export const GameDevView: React.FC<GameDevViewProps> = ({ onOpenProject }) => {
       {/* 1. Spacious Hero Welcome Screen: Ambient Video breathes, Title in Bottom-Left */}
       <section className="relative min-h-[82vh] sm:min-h-[88vh] flex flex-col justify-end pt-28 pb-10 sm:pb-16 px-4 sm:px-8 max-w-7xl mx-auto w-full">
         <div className="space-y-4 max-w-3xl relative z-10">
-          {/* Realm Tag with subtle dither accent */}
+          {/* Realm Tag */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono uppercase tracking-wider backdrop-blur-md">
             <Gamepad2 size={13} />
-            <span>░ 01 / Gamedev & CG ░</span>
+            <span>01 / Gamedev & CG</span>
           </div>
 
           {/* Large Title in Bottom-Left with Keleti font */}
@@ -74,18 +73,6 @@ export const GameDevView: React.FC<GameDevViewProps> = ({ onOpenProject }) => {
             </button>
           </div>
         </div>
-
-        {/* Hero to Works Dither Transition Ramp (Bayer 4x4 matrix dither fade into black) */}
-        <div
-          className="absolute -bottom-1 inset-x-0 h-24 pointer-events-none z-10"
-          style={{
-            backgroundImage: `url(${getAssetUrl('/dither-gradient.svg')})`,
-            backgroundRepeat: 'repeat-x',
-            backgroundPosition: 'bottom',
-            backgroundSize: '12px 100%',
-            imageRendering: 'pixelated'
-          }}
-        />
       </section>
 
       {/* 2. Showcase Bento Grid Section */}

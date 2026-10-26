@@ -186,11 +186,6 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm }) => {
             hovered === 'gamedev' ? 'opacity-70' : 'opacity-90'
           }`}
         />
-        {/* Subtle dither screen texture on Gamedev Portal */}
-        <div
-          className="absolute inset-0 pointer-events-none dither-screen-overlay opacity-30 mix-blend-overlay z-20"
-          aria-hidden="true"
-        />
         {hovered === 'gamedev' && (
           <div className="absolute bottom-1/3 left-1/3 w-96 h-96 rounded-full bg-amber-500/20 blur-[130px] pointer-events-none animate-pulse z-20" />
         )}

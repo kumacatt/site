@@ -64,8 +64,8 @@ export const App: React.FC = () => {
   // 3. Main Realm Views (Gamedev / CG or Design / Identity)
   return (
     <div className="relative min-h-screen bg-[#050508] text-white select-none">
-      {/* Custom Fluid Cursor */}
-      <CustomCursor />
+      {/* Interactive Dither Cursor Spotlight */}
+      <CustomCursor currentRealm={route.currentRealm} />
 
       {/* Atmospheric Ambient Video & Glows */}
       <AmbientBackground currentRealm={route.currentRealm} />
