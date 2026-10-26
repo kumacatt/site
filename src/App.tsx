@@ -8,6 +8,7 @@ import { DesignView } from './components/DesignView';
 import { ProjectModal } from './components/ProjectModal';
 import { AmbientBackground } from './components/AmbientBackground';
 import { CustomCursor } from './components/CustomCursor';
+import { DitherTuner } from './components/DitherTuner';
 import { PROJECTS } from './data/projects';
 
 export const App: React.FC = () => {
@@ -95,6 +96,9 @@ export const App: React.FC = () => {
         project={activeProject}
         onClose={closeProject}
       />
+
+      {/* Real-time Interactive Dither Edge Tuner (GameDev realm) */}
+      <DitherTuner currentRealm={route.currentRealm} />
     </div>
   );
 };

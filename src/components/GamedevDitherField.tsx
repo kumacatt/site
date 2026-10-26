@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import { RealmType } from '../data/projects';
+import { loadDitherSettings, DitherSettings } from './DitherTuner';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -16,8 +18,13 @@ const SIM_W = 128;
 const SIM_H = 72;
 const SIM_SIZE = SIM_W * SIM_H;
 
-export const GamedevDitherField: React.FC = () => {
+interface GamedevDitherFieldProps {
+  realm?: RealmType | null;
+}
+
+export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 'gamedev' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDesign = realm === 'design';
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,6 +38,17 @@ export const GamedevDitherField: React.FC = () => {
     let canvasH = 0;
     let imageData: ImageData | null = null;
     let buf32: Uint32Array | null = null;
+
+    // Load dynamic tuner settings (persisted in localStorage or default)
+    let currentSettings: DitherSettings = loadDitherSettings();
+
+    const handleSettingsUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<DitherSettings>;
+      if (customEvent.detail) {
+        currentSettings = { ...customEvent.detail };
+      }
+    };
+    window.addEventListener('kum-dither-settings', handleSettingsUpdate);
 
     // Pre-allocated Float32Array buffers for Navier-Stokes simulation
     const u = new Float32Array(SIM_SIZE);
@@ -160,14 +178,16 @@ export const GamedevDitherField: React.FC = () => {
       const dy = simY - lastSimY;
       const dist = Math.hypot(dx, dy);
 
-      if (dist > 0.1) {
+      if (dist > 0.08) {
         // Interpolate along movement vector for continuous liquid flow without gaps
-        const steps = Math.min(12, Math.max(1, Math.ceil(dist / 1.5)));
+        const steps = Math.min(14, Math.max(1, Math.ceil(dist / 1.4)));
         const stepDx = dx / steps;
         const stepDy = dy / steps;
 
+        // Radius dynamically adapted from Tuner (or smooth default for Design)
+        const baseRadius = isDesign ? 3.6 : currentSettings.fluidRadius;
+        const radius = Math.min(baseRadius * 1.5, baseRadius * 0.75 + dist * 0.16);
         const force = Math.min(3.5, 0.4 + dist * 0.25);
-        const radius = Math.min(4.5, 2.2 + dist * 0.18);
 
         for (let s = 0; s <= steps; s++) {
           const px = lastSimX + stepDx * s;
@@ -188,7 +208,7 @@ export const GamedevDitherField: React.FC = () => {
                 const falloff = 1 - Math.sqrt(dSq) / radius;
                 const idx = r + ix;
                 // Inject density and directional velocity
-                dens[idx] = Math.min(2.0, dens[idx] + falloff * 0.85);
+                dens[idx] = Math.min(2.2, dens[idx] + falloff * 0.9);
                 u[idx] += dx * force * falloff * 0.12;
                 v[idx] += dy * force * falloff * 0.12;
               }
@@ -215,7 +235,7 @@ export const GamedevDitherField: React.FC = () => {
       return (a << 24) | (b << 16) | (g << 8) | r;
     };
 
-    // 120 FPS Fluid Simulation + Bayer Dither Render Loop
+    // 60-120 FPS Fluid Simulation + Render Loop
     const render = () => {
       if (!ctx || !imageData || !buf32) return;
 
@@ -235,9 +255,10 @@ export const GamedevDitherField: React.FC = () => {
       dens_prev.set(dens);
       advect(dens, dens_prev, u, v, dt);
 
-      // Natural viscous dissipation (fluid gracefully dissipates over ~1 second)
+      // Dissipation rate (Design uses silky linger; GameDev uses Tuner setting)
+      const dissipation = isDesign ? 0.965 : currentSettings.dissipation;
       for (let i = 0; i < SIM_SIZE; i++) {
-        dens[i] *= 0.955;
+        dens[i] *= dissipation;
         u[i] *= 0.965;
         v[i] *= 0.965;
       }
@@ -248,7 +269,7 @@ export const GamedevDitherField: React.FC = () => {
       const simScaleX = (SIM_W - 1) / canvasW;
       const simScaleY = (SIM_H - 1) / canvasH;
 
-      // 2. Render Fluid Density through Bayer Ordered Dithering Matrix
+      // 2. Render Fluid
       for (let cy = 0; cy < canvasH; cy++) {
         const by = cy % 4;
         const bayerRow = BAYER_4X4[by];
@@ -263,15 +284,9 @@ export const GamedevDitherField: React.FC = () => {
         const r1 = simY1 * SIM_W;
 
         for (let cx = 0; cx < canvasW; cx++) {
-          const bayerThreshold = bayerRow[cx % 4] / 16;
           let pixel = 0;
 
-          // A. Base subtle dither field (1 dot per 4x4, ~4.5% opacity, keeps video pristine)
-          if (bayerRow[cx % 4] === 0) {
-            pixel = makeColor(255, 255, 255, 11);
-          }
-
-          // B. Bilinear sample fluid density at (cx, cy)
+          // Bilinear sample fluid density at (cx, cy)
           const simXFloat = cx * simScaleX;
           const simX0 = simXFloat | 0;
           const simX1 = simX0 + 1;
@@ -286,13 +301,53 @@ export const GamedevDitherField: React.FC = () => {
             (1 - fracX) * ((1 - fracY) * d00 + fracY * d01) +
             fracX * ((1 - fracY) * d10 + fracY * d11);
 
-          // C. If fluid is present, threshold it through Bayer dither matrix!
-          if (fluidDensity > 0.02) {
-            // Authentic organic dither thresholding
-            if (fluidDensity > bayerThreshold) {
-              const alpha = Math.min(245, Math.floor(75 + fluidDensity * 165));
-              // Luminous liquid amber pixel (RGB: 245, 158, 11)
-              pixel = makeColor(245, 158, 11, alpha);
+          if (isDesign) {
+            // === DESIGN & IDENTITY REALM ===
+            // 100% clean of dither dots. Silky liquid smoke / aurora plume like lusion.co
+            if (fluidDensity > 0.005) {
+              const dNorm = Math.min(1.2, fluidDensity);
+              const alpha = Math.min(220, Math.floor(dNorm * 200));
+
+              // Luminous chromatic gradient:
+              // Outer plume: electric purple RGB(168, 85, 247)
+              // Hot inner core: radiant neon magenta RGB(236, 72, 153)
+              const t = Math.min(1, dNorm * 0.85);
+              const r = Math.round(168 + t * (236 - 168));
+              const g = Math.round(85 - t * 13);
+              const b = Math.round(247 - t * 94);
+
+              pixel = makeColor(r, g, b, alpha);
+            }
+          } else {
+            // === GAMEDEV REALM ===
+            // Authentic Bayer Ordered Dither with live Edge Sharpness tuning
+            const bayerThreshold = bayerRow[cx % 4] / 16;
+
+            // A. Base subtle dither field
+            if (currentSettings.baseOpacity > 0 && bayerRow[cx % 4] === 0) {
+              const baseAlpha = Math.floor(currentSettings.baseOpacity * 255);
+              pixel = makeColor(255, 255, 255, baseAlpha);
+            }
+
+            // B. Threshold dynamic fluid density
+            if (fluidDensity > 0.015) {
+              // Edge Sharpness power curve:
+              // < 1.0 = soft, gradual dissolve fringes
+              // 1.0–1.5 = balanced retro Bayer dither edge
+              // > 1.8 = sharp, crunchy retro threshold edge
+              const normalizedDensity = Math.min(1.0, fluidDensity * 0.85);
+              const shapedDensity = Math.pow(normalizedDensity, currentSettings.edgeSharpness);
+
+              if (shapedDensity > bayerThreshold) {
+                const alpha = Math.min(250, Math.floor(75 + shapedDensity * 175));
+                if (shapedDensity > 0.72) {
+                  // Hot golden highlight core
+                  pixel = makeColor(253, 224, 71, alpha);
+                } else {
+                  // Liquid amber dither pixel
+                  pixel = makeColor(245, 158, 11, alpha);
+                }
+              }
             }
           }
 
@@ -313,15 +368,20 @@ export const GamedevDitherField: React.FC = () => {
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('kum-dither-settings', handleSettingsUpdate);
     };
-  }, []);
+  }, [isDesign]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none z-[1]"
+      className={`absolute inset-0 w-full h-full pointer-events-none z-[1] transition-opacity duration-700 ${
+        isDesign ? 'opacity-85' : 'opacity-100'
+      }`}
       style={{
-        imageRendering: 'pixelated',
+        imageRendering: isDesign ? 'auto' : 'pixelated',
+        filter: isDesign ? 'blur(10px) saturate(1.45)' : 'none',
+        willChange: 'filter, opacity',
       }}
       aria-hidden="true"
     />
