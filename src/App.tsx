@@ -13,6 +13,7 @@ import { PROJECTS } from './data/projects';
 
 export const App: React.FC = () => {
   const { route, openProject, closeProject, setRealm } = useHashRoute();
+  const [isTunerOpen, setIsTunerOpen] = useState(false);
   
   // Track intro screen state (shows on first visit to root/portal unless direct link was used)
   const [hasEnteredIntro, setHasEnteredIntro] = useState(() => {
@@ -80,6 +81,7 @@ export const App: React.FC = () => {
           setRealm(null);
         }}
         onScrollTo={handleScrollTo}
+        onToggleSettings={() => setIsTunerOpen(prev => !prev)}
       />
 
       {/* Main Realm Body */}
@@ -98,7 +100,13 @@ export const App: React.FC = () => {
       />
 
       {/* Real-time Interactive Dither Edge Tuner (GameDev realm) */}
-      <DitherTuner currentRealm={route.currentRealm} />
+      <DitherTuner
+        currentRealm={route.currentRealm}
+        isOpen={isTunerOpen}
+        onClose={() => setIsTunerOpen(false)}
+        onOpen={() => setIsTunerOpen(true)}
+        onSwitchToGamedev={() => setRealm('gamedev')}
+      />
     </div>
   );
 };

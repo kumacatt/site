@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
+import { RealmType } from '../data/projects';
 import { Send, Copy, Check, Mail } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { getAssetUrl } from '../utils/asset';
 
-export const ContactSection: React.FC = () => {
+interface ContactSectionProps {
+  realm?: RealmType | null;
+}
+
+export const ContactSection: React.FC<ContactSectionProps> = ({ realm = 'gamedev' }) => {
   const { lang } = useLanguage();
   const t = TRANSLATIONS.contact;
+  const isDesign = realm === 'design';
   const [copiedEmail, setCopiedEmail] = useState(false);
   const myEmail = 'kumacat@yandex.ru';
 
@@ -74,7 +80,11 @@ export const ContactSection: React.FC = () => {
           <span className="text-xs font-mono uppercase tracking-widest text-white/40 block mb-2">
             {t.contacts[lang]}
           </span>
-          <h2 className="text-3xl sm:text-5xl font-normal text-white tracking-wide uppercase font-heading">
+          <h2 className={`text-3xl sm:text-5xl uppercase text-white ${
+            isDesign
+              ? 'font-sans font-black tracking-tight'
+              : 'font-heading font-normal tracking-wide'
+          }`}>
             {t.title[lang]}
           </h2>
           <p className="mt-3 text-sm sm:text-base font-mono text-white/70 max-w-md mx-auto">

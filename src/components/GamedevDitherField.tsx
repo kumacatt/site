@@ -10,7 +10,7 @@ const BAYER_4X4 = [
   [15,  7, 13,  5]
 ];
 
-// Screen to canvas downscaling factor (crisp retro pixel resolution)
+// Screen to canvas downscaling factor (retro pixel scale for gamedev / crisp sampling for refraction)
 const PIXEL_SCALE = 4;
 
 // Navier-Stokes fluid simulation grid resolution
@@ -20,9 +20,10 @@ const SIM_SIZE = SIM_W * SIM_H;
 
 interface GamedevDitherFieldProps {
   realm?: RealmType | null;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
-export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 'gamedev' }) => {
+export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 'gamedev', videoRef }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDesign = realm === 'design';
 
@@ -38,6 +39,10 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
     let canvasH = 0;
     let imageData: ImageData | null = null;
     let buf32: Uint32Array | null = null;
+
+    // Offscreen canvas for sampling underlying video in Design realm (Optical Refraction)
+    const offscreenCanvas = document.createElement('canvas');
+    const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
 
     // Load dynamic tuner settings (persisted in localStorage or default)
     let currentSettings: DitherSettings = loadDitherSettings();
@@ -68,6 +73,8 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       canvasH = Math.ceil(window.innerHeight / PIXEL_SCALE);
       canvas.width = canvasW;
       canvas.height = canvasH;
+      offscreenCanvas.width = canvasW;
+      offscreenCanvas.height = canvasH;
       imageData = ctx.createImageData(canvasW, canvasH);
       buf32 = new Uint32Array(imageData.data.buffer);
     };
@@ -184,10 +191,10 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
         const stepDx = dx / steps;
         const stepDy = dy / steps;
 
-        // Radius dynamically adapted from Tuner (or smooth default for Design)
-        const baseRadius = isDesign ? 3.6 : currentSettings.fluidRadius;
+        // Radius dynamically adapted from Tuner (or smooth liquid ripple radius for Design)
+        const baseRadius = isDesign ? 3.2 : currentSettings.fluidRadius;
         const radius = Math.min(baseRadius * 1.5, baseRadius * 0.75 + dist * 0.16);
-        const force = Math.min(3.5, 0.4 + dist * 0.25);
+        const force = isDesign ? Math.min(4.5, 0.6 + dist * 0.35) : Math.min(3.5, 0.4 + dist * 0.25);
 
         for (let s = 0; s <= steps; s++) {
           const px = lastSimX + stepDx * s;
@@ -208,9 +215,9 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
                 const falloff = 1 - Math.sqrt(dSq) / radius;
                 const idx = r + ix;
                 // Inject density and directional velocity
-                dens[idx] = Math.min(2.2, dens[idx] + falloff * 0.9);
-                u[idx] += dx * force * falloff * 0.12;
-                v[idx] += dy * force * falloff * 0.12;
+                dens[idx] = Math.min(2.5, dens[idx] + falloff * 0.95);
+                u[idx] += dx * force * falloff * 0.14;
+                v[idx] += dy * force * falloff * 0.14;
               }
             }
           }
@@ -255,12 +262,21 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       dens_prev.set(dens);
       advect(dens, dens_prev, u, v, dt);
 
-      // Dissipation rate (Design uses silky linger; GameDev uses Tuner setting)
-      const dissipation = isDesign ? 0.965 : currentSettings.dissipation;
+      // Dissipation rate (Design uses natural liquid ripple dissipation; GameDev uses Tuner setting)
+      const dissipation = isDesign ? 0.960 : currentSettings.dissipation;
       for (let i = 0; i < SIM_SIZE; i++) {
         dens[i] *= dissipation;
         u[i] *= 0.965;
         v[i] *= 0.965;
+      }
+
+      // Check whether there is active motion in the field to optimize resting state
+      let hasMotion = false;
+      for (let i = 0; i < SIM_SIZE; i += 6) {
+        if (dens[i] > 0.005 || Math.abs(u[i]) > 0.002 || Math.abs(v[i]) > 0.002) {
+          hasMotion = true;
+          break;
+        }
       }
 
       // Clear render buffer
@@ -268,6 +284,21 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
 
       const simScaleX = (SIM_W - 1) / canvasW;
       const simScaleY = (SIM_H - 1) / canvasH;
+
+      // If in Design realm and we have motion, sample current video frame to displace it
+      let vidBuf32: Uint32Array | null = null;
+      if (isDesign && hasMotion && videoRef?.current && offscreenCtx) {
+        const video = videoRef.current;
+        if (video.readyState >= 2 && !video.paused) {
+          try {
+            offscreenCtx.drawImage(video, 0, 0, canvasW, canvasH);
+            const vidImg = offscreenCtx.getImageData(0, 0, canvasW, canvasH);
+            vidBuf32 = new Uint32Array(vidImg.data.buffer);
+          } catch {
+            vidBuf32 = null;
+          }
+        }
+      }
 
       // 2. Render Fluid
       for (let cy = 0; cy < canvasH; cy++) {
@@ -286,12 +317,13 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
         for (let cx = 0; cx < canvasW; cx++) {
           let pixel = 0;
 
-          // Bilinear sample fluid density at (cx, cy)
+          // Map canvas X to simulation space
           const simXFloat = cx * simScaleX;
           const simX0 = simXFloat | 0;
           const simX1 = simX0 + 1;
           const fracX = simXFloat - simX0;
 
+          // Bilinear sample fluid density at (cx, cy)
           const d00 = dens[r0 + simX0];
           const d10 = dens[r0 + simX1];
           const d01 = dens[r1 + simX0];
@@ -302,28 +334,78 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
             fracX * ((1 - fracY) * d10 + fracY * d11);
 
           if (isDesign) {
-            // === DESIGN & IDENTITY REALM ===
-            // 100% clean of dither dots. Silky liquid smoke / aurora plume like lusion.co
-            if (fluidDensity > 0.005) {
-              const dNorm = Math.min(1.2, fluidDensity);
-              const alpha = Math.min(220, Math.floor(dNorm * 200));
+            // ==========================================
+            // === DESIGN & IDENTITY: OPTICAL REFRACTION
+            // ==========================================
+            // No colored smoke. Pure liquid water/glass distortion & caustics like lusion.co!
+            if (hasMotion) {
+              const u00 = u[r0 + simX0];
+              const u10 = u[r0 + simX1];
+              const u01 = u[r1 + simX0];
+              const u11 = u[r1 + simX1];
+              const vx =
+                (1 - fracX) * ((1 - fracY) * u00 + fracY * u01) +
+                fracX * ((1 - fracY) * u10 + fracY * u11);
 
-              // Luminous chromatic gradient:
-              // Outer plume: electric purple RGB(168, 85, 247)
-              // Hot inner core: radiant neon magenta RGB(236, 72, 153)
-              const t = Math.min(1, dNorm * 0.85);
-              const r = Math.round(168 + t * (236 - 168));
-              const g = Math.round(85 - t * 13);
-              const b = Math.round(247 - t * 94);
+              const v00 = v[r0 + simX0];
+              const v10 = v[r0 + simX1];
+              const v01 = v[r1 + simX0];
+              const v11 = v[r1 + simX1];
+              const vy =
+                (1 - fracX) * ((1 - fracY) * v00 + fracY * v01) +
+                fracX * ((1 - fracY) * v10 + fracY * v11);
 
-              pixel = makeColor(r, g, b, alpha);
+              const speedSq = vx * vx + vy * vy;
+
+              if (speedSq > 0.0001 || fluidDensity > 0.005) {
+                const speed = Math.sqrt(speedSq);
+                const dispStrength = 30.0;
+                const dispX = vx * dispStrength;
+                const dispY = vy * dispStrength;
+
+                // Specular liquid glass surface glint (curling wave crest sheen)
+                const waveSlope = speed * 1.6 + fluidDensity * 0.45;
+                const specular = Math.min(220, Math.floor(Math.pow(Math.min(1.0, waveSlope * 1.5), 1.35) * 220));
+
+                if (vidBuf32) {
+                  // Refraction with Chromatic Dispersion (Prismatic Red/Blue split)
+                  // Red offset
+                  const rx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * 1.3) | 0));
+                  const ry = Math.max(0, Math.min(canvasH - 1, (cy + dispY * 1.3) | 0));
+                  const r = vidBuf32[ry * canvasW + rx] & 0xff;
+
+                  // Green center
+                  const gx = Math.max(0, Math.min(canvasW - 1, (cx + dispX) | 0));
+                  const gy = Math.max(0, Math.min(canvasH - 1, (cy + dispY) | 0));
+                  const g = (vidBuf32[gy * canvasW + gx] >> 8) & 0xff;
+
+                  // Blue offset
+                  const bx = Math.max(0, Math.min(canvasW - 1, (cx + dispX * 0.7) | 0));
+                  const by = Math.max(0, Math.min(canvasH - 1, (cy + dispY * 0.7) | 0));
+                  const b = (vidBuf32[by * canvasW + bx] >> 16) & 0xff;
+
+                  // Composite displaced image with luminous caustic specular glint
+                  const outR = Math.min(255, r + specular);
+                  const outG = Math.min(255, g + specular);
+                  const outB = Math.min(255, b + Math.floor(specular * 1.15));
+
+                  // Alpha blend: smoothly overlays distorted ripples over undisturbed background video
+                  const alpha = Math.min(255, Math.floor(Math.min(1.0, speed * 2.8 + fluidDensity * 1.6) * 255));
+                  pixel = makeColor(outR, outG, outB, alpha);
+                } else {
+                  // Clear water caustic sheen (if video buffer is initializing or fallback)
+                  const alpha = Math.min(180, specular);
+                  pixel = makeColor(255, 255, 255, alpha);
+                }
+              }
             }
           } else {
-            // === GAMEDEV REALM ===
-            // Authentic Bayer Ordered Dither with live Edge Sharpness tuning
+            // ==========================================
+            // === GAMEDEV REALM: RETRO BAYER DITHER
+            // ==========================================
             const bayerThreshold = bayerRow[cx % 4] / 16;
 
-            // A. Base subtle dither field
+            // A. Base subtle resting dither field
             if (currentSettings.baseOpacity > 0 && bayerRow[cx % 4] === 0) {
               const baseAlpha = Math.floor(currentSettings.baseOpacity * 255);
               pixel = makeColor(255, 255, 255, baseAlpha);
@@ -333,8 +415,8 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
             if (fluidDensity > 0.015) {
               // Edge Sharpness power curve:
               // < 1.0 = soft, gradual dissolve fringes
-              // 1.0–1.5 = balanced retro Bayer dither edge
-              // > 1.8 = sharp, crunchy retro threshold edge
+              // 1.0–1.8 = balanced retro Bayer dither edge
+              // 2.5–3.0 = sharp, crunchy retro threshold edge
               const normalizedDensity = Math.min(1.0, fluidDensity * 0.85);
               const shapedDensity = Math.pow(normalizedDensity, currentSettings.edgeSharpness);
 
@@ -370,18 +452,18 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ realm = 
       document.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('kum-dither-settings', handleSettingsUpdate);
     };
-  }, [isDesign]);
+  }, [isDesign, videoRef]);
 
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 w-full h-full pointer-events-none z-[1] transition-opacity duration-700 ${
-        isDesign ? 'opacity-85' : 'opacity-100'
+      className={`absolute inset-0 w-full h-full pointer-events-none z-[1] transition-opacity duration-500 ${
+        isDesign ? 'opacity-95' : 'opacity-100'
       }`}
       style={{
         imageRendering: isDesign ? 'auto' : 'pixelated',
-        filter: isDesign ? 'blur(10px) saturate(1.45)' : 'none',
-        willChange: 'filter, opacity',
+        filter: 'none',
+        willChange: 'transform, opacity',
       }}
       aria-hidden="true"
     />

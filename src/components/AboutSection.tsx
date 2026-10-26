@@ -1,18 +1,28 @@
 import React from 'react';
+import { RealmType } from '../data/projects';
 import { SoftwareGraph } from './SoftwareGraph';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 
-export const AboutSection: React.FC = () => {
+interface AboutSectionProps {
+  realm?: RealmType | null;
+}
+
+export const AboutSection: React.FC<AboutSectionProps> = ({ realm = 'gamedev' }) => {
   const { lang } = useLanguage();
   const t = TRANSLATIONS.about;
+  const isDesign = realm === 'design';
 
   return (
     <section id="about" className="relative py-20 px-4 sm:px-8 max-w-7xl mx-auto w-full">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         {/* Left Column: Alive, informal, honest text */}
         <div className="lg:col-span-5 space-y-5">
-          <h2 className="text-3xl sm:text-5xl font-normal text-white tracking-wide uppercase font-heading">
+          <h2 className={`text-3xl sm:text-5xl uppercase text-white ${
+            isDesign
+              ? 'font-sans font-black tracking-tight'
+              : 'font-heading font-normal tracking-wide'
+          }`}>
             {t.title[lang]}
           </h2>
 

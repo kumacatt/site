@@ -120,10 +120,10 @@ export const GameDevView: React.FC<GameDevViewProps> = ({ onOpenProject }) => {
       </div>
 
       {/* About Section */}
-      <AboutSection />
+      <AboutSection realm="gamedev" />
 
       {/* Contact Section */}
-      <ContactSection />
+      <ContactSection realm="gamedev" />
     </div>
   );
 };

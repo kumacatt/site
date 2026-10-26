@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { RealmType } from '../data/projects';
-import { Gamepad2, Palette, Share2, Check, Compass, Menu, X, ArrowUpRight } from 'lucide-react';
+import { Gamepad2, Palette, Share2, Check, Compass, Menu, X, ArrowUpRight, Settings } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
@@ -10,13 +10,15 @@ interface RealmHeaderProps {
   onSelectRealm: (realm: RealmType) => void;
   onOpenPortal: () => void;
   onScrollTo: (sectionId: string) => void;
+  onToggleSettings?: () => void;
 }
 
 export const RealmHeader: React.FC<RealmHeaderProps> = ({
   currentRealm,
   onSelectRealm,
   onOpenPortal,
-  onScrollTo
+  onScrollTo,
+  onToggleSettings
 }) => {
   const { lang } = useLanguage();
   const t = TRANSLATIONS.header;
@@ -107,6 +109,15 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
           >
             {t.contacts[lang]}
           </button>
+
+          {/* Dither & Visual FX Settings Gear */}
+          <button
+            onClick={onToggleSettings}
+            title={lang === 'ru' ? 'Настройки дизера' : 'Dither Settings'}
+            className="p-2.5 rounded-xl bg-black/50 hover:bg-white/10 backdrop-blur-xl border border-white/10 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 transition-all flex items-center justify-center group"
+          >
+            <Settings size={15} className="group-hover:rotate-90 transition-transform duration-300" />
+          </button>
         </div>
 
         {/* Right Controls on Mobile (`md:hidden`): Language Switch + Hamburger */}
@@ -163,6 +174,21 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
           >
             <span>{t.contacts[lang]}</span>
             <span className="text-white/40">→</span>
+          </button>
+
+          {/* Dither Tuner in Mobile Menu */}
+          <button
+            onClick={() => {
+              if (onToggleSettings) onToggleSettings();
+              setMobileMenuOpen(false);
+            }}
+            className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-mono text-amber-300 transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              <Settings size={14} className="text-amber-400" />
+              <span>{lang === 'ru' ? 'Настройки дизера' : 'Dither Settings'}</span>
+            </span>
+            <span className="text-[10px] font-mono text-amber-400/70 font-bold">⚙️</span>
           </button>
 
           {/* Portal Switcher */}

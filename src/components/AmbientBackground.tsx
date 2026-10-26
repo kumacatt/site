@@ -71,8 +71,8 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         <source src={getAssetUrl('/2_Polyana_F.mp4')} type="video/mp4" />
       </video>
 
-      {/* 3. Interactive Liquid Fluid Field (GameDev: Retro Bayer Dither; Design: Silky Aurora Smoke) */}
-      <GamedevDitherField realm={currentRealm} />
+      {/* 3. Interactive Liquid Fluid Field (GameDev: Retro Bayer Dither; Design: Optical Video Refraction) */}
+      <GamedevDitherField realm={currentRealm} videoRef={isDesign ? designVideoRef : undefined} />
 
       {/* Dreamlike Ambient Color Orbs matching the active realm */}
       <div

@@ -119,10 +119,10 @@ export const DesignView: React.FC<DesignViewProps> = ({ onOpenProject }) => {
       </div>
 
       {/* About Section */}
-      <AboutSection />
+      <AboutSection realm="design" />
 
       {/* Contact Section */}
-      <ContactSection />
+      <ContactSection realm="design" />
     </div>
   );
 };
