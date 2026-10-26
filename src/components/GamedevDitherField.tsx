@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-// 4x4 Bayer Ordered Dithering Matrix
+// 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
   [ 0,  8,  2, 10],
   [12,  4, 14,  6],
@@ -8,31 +8,16 @@ const BAYER_4X4 = [
   [15,  7, 13,  5]
 ];
 
-const SCALE = 4; // 1 canvas pixel = 4x4 screen pixels (crisp retro pixel resolution)
+// Screen to canvas downscaling factor (crisp retro pixel resolution)
+const PIXEL_SCALE = 4;
 
-interface WaterRipple {
-  x: number;
-  y: number;
-  radius: number;
-  maxRadius: number;
-  age: number;
-  maxAge: number;
-  strength: number;
-}
+// Navier-Stokes fluid simulation grid resolution
+const SIM_W = 128;
+const SIM_H = 72;
+const SIM_SIZE = SIM_W * SIM_H;
 
 export const GamedevDitherField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef({
-    x: -500,
-    y: -500,
-    targetX: -500,
-    targetY: -500,
-    lastEmitX: -500,
-    lastEmitY: -500,
-    active: false,
-  });
-
-  const ripplesRef = useRef<WaterRipple[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -42,178 +27,277 @@ export const GamedevDitherField: React.FC = () => {
     if (!ctx) return;
 
     let animId: number;
-    let width = 0;
-    let height = 0;
+    let canvasW = 0;
+    let canvasH = 0;
     let imageData: ImageData | null = null;
     let buf32: Uint32Array | null = null;
 
+    // Pre-allocated Float32Array buffers for Navier-Stokes simulation
+    const u = new Float32Array(SIM_SIZE);
+    const v = new Float32Array(SIM_SIZE);
+    const u_prev = new Float32Array(SIM_SIZE);
+    const v_prev = new Float32Array(SIM_SIZE);
+    const dens = new Float32Array(SIM_SIZE);
+    const dens_prev = new Float32Array(SIM_SIZE);
+
+    // Mouse tracking in simulation space
+    let lastSimX = -100;
+    let lastSimY = -100;
+    let isMouseActive = false;
+
     const resize = () => {
-      width = Math.ceil(window.innerWidth / SCALE);
-      height = Math.ceil(window.innerHeight / SCALE);
-      canvas.width = width;
-      canvas.height = height;
-      imageData = ctx.createImageData(width, height);
+      canvasW = Math.ceil(window.innerWidth / PIXEL_SCALE);
+      canvasH = Math.ceil(window.innerHeight / PIXEL_SCALE);
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      imageData = ctx.createImageData(canvasW, canvasH);
       buf32 = new Uint32Array(imageData.data.buffer);
     };
 
     resize();
     window.addEventListener('resize', resize);
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const cx = e.clientX / SCALE;
-      const cy = e.clientY / SCALE;
-      mouseRef.current.targetX = cx;
-      mouseRef.current.targetY = cy;
-      mouseRef.current.active = true;
+    // 1. Semi-Lagrangian Advection for Velocity and Density
+    const advect = (
+      d: Float32Array,
+      d0: Float32Array,
+      vx: Float32Array,
+      vy: Float32Array,
+      dt: number
+    ) => {
+      const dtX = dt * SIM_W;
+      const dtY = dt * SIM_H;
 
-      // Calculate speed since last ripple emission
-      const m = mouseRef.current;
-      const dx = cx - m.lastEmitX;
-      const dy = cy - m.lastEmitY;
-      const dist = Math.hypot(dx, dy);
+      for (let y = 1; y < SIM_H - 1; y++) {
+        const row = y * SIM_W;
+        for (let x = 1; x < SIM_W - 1; x++) {
+          const idx = row + x;
+          let px = x - dtX * vx[idx];
+          let py = y - dtY * vy[idx];
 
-      // Emit expanding water ripple wave when moving
-      if (dist >= 2.5) {
-        m.lastEmitX = cx;
-        m.lastEmitY = cy;
+          if (px < 0.5) px = 0.5;
+          else if (px > SIM_W - 1.5) px = SIM_W - 1.5;
+          if (py < 0.5) py = 0.5;
+          else if (py > SIM_H - 1.5) py = SIM_H - 1.5;
 
-        ripplesRef.current.push({
-          x: cx,
-          y: cy,
-          radius: 3,
-          maxRadius: Math.min(26, 9 + dist * 1.5),
-          age: 0,
-          maxAge: 22, // ~350ms duration (quick water-like dissipation)
-          strength: Math.min(1.0, 0.45 + dist * 0.15),
-        });
+          const x0 = px | 0;
+          const x1 = x0 + 1;
+          const y0 = py | 0;
+          const y1 = y0 + 1;
 
-        // Cap ripple count to prevent memory overhead
-        if (ripplesRef.current.length > 25) {
-          ripplesRef.current.shift();
+          const sx = px - x0;
+          const sy = py - y0;
+          const r0 = y0 * SIM_W;
+          const r1 = y1 * SIM_W;
+
+          d[idx] =
+            (1 - sx) * ((1 - sy) * d0[r0 + x0] + sy * d0[r1 + x0]) +
+            sx * ((1 - sy) * d0[r0 + x1] + sy * d0[r1 + x1]);
         }
       }
     };
 
+    // 2. Incompressibility Projection (creates natural swirling eddies and vortices like on lusion.co)
+    const project = (
+      vx: Float32Array,
+      vy: Float32Array,
+      p: Float32Array,
+      div: Float32Array
+    ) => {
+      const hX = 1 / SIM_W;
+      const hY = 1 / SIM_H;
+
+      for (let y = 1; y < SIM_H - 1; y++) {
+        const r = y * SIM_W;
+        for (let x = 1; x < SIM_W - 1; x++) {
+          const idx = r + x;
+          div[idx] =
+            -0.5 *
+            (hX * (vx[idx + 1] - vx[idx - 1]) + hY * (vy[idx + SIM_W] - vy[idx - SIM_W]));
+          p[idx] = 0;
+        }
+      }
+
+      // 4 Gauss-Seidel relaxation steps (fast & visually smooth)
+      for (let k = 0; k < 4; k++) {
+        for (let y = 1; y < SIM_H - 1; y++) {
+          const r = y * SIM_W;
+          for (let x = 1; x < SIM_W - 1; x++) {
+            p[r + x] =
+              (div[r + x] +
+                p[r + x - 1] +
+                p[r + x + 1] +
+                p[r - SIM_W + x] +
+                p[r + SIM_W + x]) *
+              0.25;
+          }
+        }
+      }
+
+      for (let y = 1; y < SIM_H - 1; y++) {
+        const r = y * SIM_W;
+        for (let x = 1; x < SIM_W - 1; x++) {
+          const idx = r + x;
+          vx[idx] -= (0.5 * (p[idx + 1] - p[idx - 1])) / hX;
+          vy[idx] -= (0.5 * (p[idx + SIM_W] - p[idx - SIM_W])) / hY;
+        }
+      }
+    };
+
+    // Mouse Injection: injects fluid density and velocity along the mouse trajectory
+    const handleMouseMove = (e: MouseEvent) => {
+      const simX = (e.clientX / window.innerWidth) * SIM_W;
+      const simY = (e.clientY / window.innerHeight) * SIM_H;
+
+      if (!isMouseActive || lastSimX < 0) {
+        lastSimX = simX;
+        lastSimY = simY;
+        isMouseActive = true;
+        return;
+      }
+
+      const dx = simX - lastSimX;
+      const dy = simY - lastSimY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 0.1) {
+        // Interpolate along movement vector for continuous liquid flow without gaps
+        const steps = Math.min(12, Math.max(1, Math.ceil(dist / 1.5)));
+        const stepDx = dx / steps;
+        const stepDy = dy / steps;
+
+        const force = Math.min(3.5, 0.4 + dist * 0.25);
+        const radius = Math.min(4.5, 2.2 + dist * 0.18);
+
+        for (let s = 0; s <= steps; s++) {
+          const px = lastSimX + stepDx * s;
+          const py = lastSimY + stepDy * s;
+
+          const minX = Math.max(1, Math.floor(px - radius));
+          const maxX = Math.min(SIM_W - 2, Math.ceil(px + radius));
+          const minY = Math.max(1, Math.floor(py - radius));
+          const maxY = Math.min(SIM_H - 2, Math.ceil(py + radius));
+
+          for (let iy = minY; iy <= maxY; iy++) {
+            const r = iy * SIM_W;
+            const dyVal = iy - py;
+            for (let ix = minX; ix <= maxX; ix++) {
+              const dxVal = ix - px;
+              const dSq = dxVal * dxVal + dyVal * dyVal;
+              if (dSq < radius * radius) {
+                const falloff = 1 - Math.sqrt(dSq) / radius;
+                const idx = r + ix;
+                // Inject density and directional velocity
+                dens[idx] = Math.min(2.0, dens[idx] + falloff * 0.85);
+                u[idx] += dx * force * falloff * 0.12;
+                v[idx] += dy * force * falloff * 0.12;
+              }
+            }
+          }
+        }
+      }
+
+      lastSimX = simX;
+      lastSimY = simY;
+    };
+
     const handleMouseLeave = () => {
-      mouseRef.current.active = false;
+      isMouseActive = false;
+      lastSimX = -100;
+      lastSimY = -100;
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     document.addEventListener('mouseleave', handleMouseLeave);
 
-    // Little-endian 32-bit color helper: 0xAABBGGRR
+    // 32-bit little-endian color: 0xAABBGGRR
     const makeColor = (r: number, g: number, b: number, a: number) => {
       return (a << 24) | (b << 16) | (g << 8) | r;
     };
 
+    // 120 FPS Fluid Simulation + Bayer Dither Render Loop
     const render = () => {
       if (!ctx || !imageData || !buf32) return;
 
-      const m = mouseRef.current;
-      m.x += (m.targetX - m.x) * 0.45;
-      m.y += (m.targetY - m.y) * 0.45;
+      // 1. Advance Navier-Stokes Fluid Simulation Step (~0.5ms)
+      const dt = 0.016;
 
-      // Clear frame to transparent
+      // Swap buffers for velocity advection
+      u_prev.set(u);
+      v_prev.set(v);
+      advect(u, u_prev, u_prev, v_prev, dt);
+      advect(v, v_prev, u_prev, v_prev, dt);
+
+      // Enforce incompressibility & vortex curling
+      project(u, v, u_prev, v_prev);
+
+      // Advect fluid density along computed velocity field
+      dens_prev.set(dens);
+      advect(dens, dens_prev, u, v, dt);
+
+      // Natural viscous dissipation (fluid gracefully dissipates over ~1 second)
+      for (let i = 0; i < SIM_SIZE; i++) {
+        dens[i] *= 0.955;
+        u[i] *= 0.965;
+        v[i] *= 0.965;
+      }
+
+      // Clear render buffer
       buf32.fill(0);
 
-      // 1. Subtle Base Dither Field (Only 1 dot per 4x4 block, ~5% opacity)
-      // Keeps background video completely crisp and unclouded
-      for (let y = 0; y < height; y++) {
-        const by = y % 4;
+      const simScaleX = (SIM_W - 1) / canvasW;
+      const simScaleY = (SIM_H - 1) / canvasH;
+
+      // 2. Render Fluid Density through Bayer Ordered Dithering Matrix
+      for (let cy = 0; cy < canvasH; cy++) {
+        const by = cy % 4;
         const bayerRow = BAYER_4X4[by];
-        const rowOffset = y * width;
-        for (let x = 0; x < width; x++) {
-          if (bayerRow[x % 4] === 0) {
-            buf32[rowOffset + x] = makeColor(255, 255, 255, 12); // 4.7% white
+        const rowOffset = cy * canvasW;
+
+        // Map canvas Y to simulation space
+        const simYFloat = cy * simScaleY;
+        const simY0 = simYFloat | 0;
+        const simY1 = simY0 + 1;
+        const fracY = simYFloat - simY0;
+        const r0 = simY0 * SIM_W;
+        const r1 = simY1 * SIM_W;
+
+        for (let cx = 0; cx < canvasW; cx++) {
+          const bayerThreshold = bayerRow[cx % 4] / 16;
+          let pixel = 0;
+
+          // A. Base subtle dither field (1 dot per 4x4, ~4.5% opacity, keeps video pristine)
+          if (bayerRow[cx % 4] === 0) {
+            pixel = makeColor(255, 255, 255, 11);
           }
-        }
-      }
 
-      // 2. Water Ripples & Wake Trails (Expanding dither waves on motion)
-      const ripples = ripplesRef.current;
-      for (let rIdx = ripples.length - 1; rIdx >= 0; rIdx--) {
-        const rip = ripples[rIdx];
-        rip.age++;
-        rip.radius += (rip.maxRadius - rip.radius) * 0.14;
+          // B. Bilinear sample fluid density at (cx, cy)
+          const simXFloat = cx * simScaleX;
+          const simX0 = simXFloat | 0;
+          const simX1 = simX0 + 1;
+          const fracX = simXFloat - simX0;
 
-        if (rip.age >= rip.maxAge) {
-          ripples.splice(rIdx, 1);
-          continue;
-        }
+          const d00 = dens[r0 + simX0];
+          const d10 = dens[r0 + simX1];
+          const d01 = dens[r1 + simX0];
+          const d11 = dens[r1 + simX1];
 
-        const lifeT = rip.age / rip.maxAge; // 0 (birth) to 1 (death)
-        const waveFade = (1 - lifeT) * rip.strength;
-        const waveThickness = 4.0;
-        const currentRadius = rip.radius;
+          const fluidDensity =
+            (1 - fracX) * ((1 - fracY) * d00 + fracY * d01) +
+            fracX * ((1 - fracY) * d10 + fracY * d11);
 
-        // Bounding box for local ripple computation
-        const minX = Math.max(0, Math.floor(rip.x - currentRadius - waveThickness));
-        const maxX = Math.min(width - 1, Math.ceil(rip.x + currentRadius + waveThickness));
-        const minY = Math.max(0, Math.floor(rip.y - currentRadius - waveThickness));
-        const maxY = Math.min(height - 1, Math.ceil(rip.y + currentRadius + waveThickness));
-
-        for (let y = minY; y <= maxY; y++) {
-          const by = y % 4;
-          const bayerRow = BAYER_4X4[by];
-          const rowOffset = y * width;
-          const dy = y - rip.y;
-
-          for (let x = minX; x <= maxX; x++) {
-            const dx = x - rip.x;
-            const dist = Math.hypot(dx, dy);
-            const waveDiff = Math.abs(dist - currentRadius);
-
-            if (waveDiff < waveThickness) {
-              const crestStrength = (1 - waveDiff / waveThickness) * waveFade;
-              const threshold = bayerRow[x % 4] / 16;
-
-              if (crestStrength > threshold) {
-                const alpha = Math.min(230, Math.floor(crestStrength * 210));
-                // Luminous amber water wave pixel
-                const existing = buf32[rowOffset + x] >>> 24;
-                if (alpha > existing) {
-                  buf32[rowOffset + x] = makeColor(245, 158, 11, alpha);
-                }
-              }
+          // C. If fluid is present, threshold it through Bayer dither matrix!
+          if (fluidDensity > 0.02) {
+            // Authentic organic dither thresholding
+            if (fluidDensity > bayerThreshold) {
+              const alpha = Math.min(245, Math.floor(75 + fluidDensity * 165));
+              // Luminous liquid amber pixel (RGB: 245, 158, 11)
+              pixel = makeColor(245, 158, 11, alpha);
             }
           }
-        }
-      }
 
-      // 3. Compact Mouse Core Spotlight with RAGGED Bayer Dither Edge
-      if (m.active && m.x >= -30 && m.x <= width + 30) {
-        const spotRadius = 16; // ~64px screen radius (tight and compact)
-        const spotRadiusSq = spotRadius * spotRadius;
-        const minX = Math.max(0, Math.floor(m.x - spotRadius));
-        const maxX = Math.min(width - 1, Math.ceil(m.x + spotRadius));
-        const minY = Math.max(0, Math.floor(m.y - spotRadius));
-        const maxY = Math.min(height - 1, Math.ceil(m.y + spotRadius));
-
-        for (let y = minY; y <= maxY; y++) {
-          const by = y % 4;
-          const bayerRow = BAYER_4X4[by];
-          const rowOffset = y * width;
-          const dy = y - m.y;
-
-          for (let x = minX; x <= maxX; x++) {
-            const dx = x - m.x;
-            const distSq = dx * dx + dy * dy;
-
-            if (distSq < spotRadiusSq) {
-              const dist = Math.sqrt(distSq);
-              const t = 1 - (dist / spotRadius);
-              // Quadratic drop for authentic ragged pixel fadeout
-              const intensity = t * t * 1.1;
-              const threshold = bayerRow[x % 4] / 16;
-
-              if (intensity > threshold) {
-                const alpha = Math.min(240, Math.floor(80 + t * 160));
-                const existing = buf32[rowOffset + x] >>> 24;
-                if (alpha > existing) {
-                  buf32[rowOffset + x] = makeColor(245, 158, 11, alpha);
-                }
-              }
-            }
+          if (pixel !== 0) {
+            buf32[rowOffset + cx] = pixel;
           }
         }
       }
