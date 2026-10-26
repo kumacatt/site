@@ -12,8 +12,8 @@ export const TRANSLATIONS = {
       en: 'Click anywhere or press any key'
     },
     clickHint: {
-      ru: 'Клик для перехода к сферам',
-      en: 'Click to explore realms'
+      ru: 'Клик, клавиша или скролл для входа',
+      en: 'Click, keypress or scroll to enter'
     }
   },
 

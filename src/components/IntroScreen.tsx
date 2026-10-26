@@ -52,6 +52,10 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
   const [isFading, setIsFading] = useState(false);
   const isFadingRef = useRef(false);
 
+  // Dynamic Scroll Accumulator & Glow feedback
+  const scrollEnergyRef = useRef(0);
+  const currentGlowRef = useRef(0);
+
   // Trigger enter smoothly with dither dissolve
   const handleProceed = () => {
     if (isFadingRef.current) return;
@@ -62,15 +66,56 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
     }, 700);
   };
 
-  // Keyboard listener: "press any key to continue"
+  // Requires a bit stronger/firmer scrolling to skip, charging dither energy as you scroll
+  const addScrollDelta = (delta: number) => {
+    if (isFadingRef.current) return;
+    const SCROLL_THRESHOLD = 340; // Decisive scroll threshold
+    scrollEnergyRef.current = Math.min(1.2, scrollEnergyRef.current + delta / SCROLL_THRESHOLD);
+    if (scrollEnergyRef.current >= 1.0) {
+      handleProceed();
+    }
+  };
+
+  // Keyboard, Click, Wheel, and Touch listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key) {
         handleProceed();
       }
     };
+
+    const handleWheel = (e: WheelEvent) => {
+      const delta = Math.abs(e.deltaY) + Math.abs(e.deltaX) * 0.5;
+      addScrollDelta(delta);
+    };
+
+    let touchStartY = 0;
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        touchStartY = e.touches[0].clientY;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const currentY = e.touches[0].clientY;
+        const diff = Math.abs(currentY - touchStartY);
+        touchStartY = currentY;
+        addScrollDelta(diff * 1.8);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
   }, []);
 
   // Dual Canvas Engine: Dithering + Frosted Blur Synergy (Moody Dark Void Aesthetic)
@@ -153,6 +198,18 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
         exitProgress = Math.min(1.0, exitProgress + 0.04);
       }
 
+      // Natural decay of accumulated scroll energy when user pauses scrolling
+      if (!isExiting) {
+        scrollEnergyRef.current = Math.max(0, scrollEnergyRef.current - 0.012);
+      }
+      // Smooth interpolation for silky visual glow
+      currentGlowRef.current += (scrollEnergyRef.current - currentGlowRef.current) * 0.22;
+      const glow = Math.min(1.0, Math.max(0, currentGlowRef.current));
+
+      // Dynamic canvas opacity based on scroll energy
+      ditherCanvas.style.opacity = `${(0.60 + glow * 0.38).toFixed(2)}`;
+      blurCanvas.style.opacity = `${(0.25 + glow * 0.30).toFixed(2)}`;
+
       // 1. Update Plasma Nodes (Slow, organic atmospheric drifts)
       plasmaRef.current.forEach((node) => {
         const driftX = node.baseX + Math.sin(frame * node.speed + node.phase) * 140;
@@ -188,10 +245,12 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
         const by = (node.y / window.innerHeight) * bH;
         const brad = (node.radius / window.innerWidth) * bW;
 
-        // Controlled subtle alpha so background stays deep, moody, and dark
+        // Controlled subtle alpha that warms up during scroll charging
         const grad = blurCtx.createRadialGradient(bx, by, 0, bx, by, brad);
-        grad.addColorStop(0, `rgba(${node.r}, ${node.g}, ${node.b}, 0.12)`);
-        grad.addColorStop(0.5, `rgba(${node.r}, ${node.g}, ${node.b}, 0.03)`);
+        const centerAlpha = (0.12 + glow * 0.18).toFixed(3);
+        const midAlpha = (0.03 + glow * 0.08).toFixed(3);
+        grad.addColorStop(0, `rgba(${node.r}, ${node.g}, ${node.b}, ${centerAlpha})`);
+        grad.addColorStop(0.5, `rgba(${node.r}, ${node.g}, ${node.b}, ${midAlpha})`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         blurCtx.fillStyle = grad;
@@ -238,11 +297,26 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
             if (dSq < node.radSq) {
               const falloff = 1.0 - Math.sqrt(dSq) / node.rad;
               const weight = falloff * falloff;
-              totalIntensity += weight * 0.16; // Restrained moody intensity
+              // Node intensity expands significantly when scrolling
+              totalIntensity += weight * (0.16 + glow * 0.26);
               accR += node.r * weight;
               accG += node.g * weight;
               accB += node.b * weight;
             }
+          }
+
+          // Expanding radiant center glow during scrolling
+          if (glow > 0.005) {
+            const cdx = cx - canvasW * 0.5;
+            const cdy = cy - canvasH * 0.5;
+            const cDist = Math.hypot(cdx, cdy);
+            const cMax = Math.hypot(canvasW * 0.5, canvasH * 0.5);
+            const cFalloff = Math.max(0, 1.0 - cDist / cMax);
+            const cWeight = cFalloff * cFalloff * glow;
+            totalIntensity += cWeight * 0.36;
+            accR += 253 * cWeight;
+            accG += 215 * cWeight;
+            accB += 75 * cWeight;
           }
 
           // Gentle mouse spotlight (soft, not blinding)
@@ -277,7 +351,8 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
 
           if (totalIntensity > 0.025) {
             const normalizedIntensity = Math.min(1.0, totalIntensity);
-            const shaped = Math.pow(normalizedIntensity, 1.6);
+            // Lower exponent as you scroll = denser, broader, more brilliant dither field!
+            const shaped = Math.pow(normalizedIntensity, 1.6 - glow * 0.55);
 
             if (shaped > bayerThresh) {
               const avgR = totalIntensity > 0.01 ? Math.min(255, Math.round(accR / totalIntensity)) : 255;
@@ -287,13 +362,13 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
               let finalR = avgR;
               let finalG = avgG;
               let finalB = avgB;
-              if (shaped > 0.7) {
-                finalR = Math.min(255, avgR + 30);
-                finalG = Math.min(255, avgG + 20);
+              if (shaped > (0.68 - glow * 0.18)) {
+                finalR = Math.min(255, avgR + 30 + Math.round(glow * 40));
+                finalG = Math.min(255, avgG + 20 + Math.round(glow * 35));
                 finalB = Math.min(255, avgB + 15);
               }
 
-              const alpha = Math.min(170, Math.floor(30 + shaped * 135));
+              const alpha = Math.min(250, Math.floor(30 + shaped * (135 + glow * 95)));
               pixel = makeColor(finalR, finalG, finalB, alpha);
             }
           }
