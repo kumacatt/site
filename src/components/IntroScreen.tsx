@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
+import { RealmType } from '../data/projects';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -31,7 +32,7 @@ interface PlasmaNode {
 }
 
 interface IntroScreenProps {
-  onEnter: () => void;
+  onEnter: (targetRealm?: RealmType) => void;
 }
 
 export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
@@ -57,12 +58,12 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
   const currentGlowRef = useRef(0);
 
   // Trigger enter smoothly with dither dissolve
-  const handleProceed = () => {
+  const handleProceed = (targetRealm?: RealmType) => {
     if (isFadingRef.current) return;
     isFadingRef.current = true;
     setIsFading(true);
     setTimeout(() => {
-      onEnter();
+      onEnter(targetRealm);
     }, 700);
   };
 
@@ -403,7 +404,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
 
   return (
     <div
-      onClick={handleProceed}
+      onClick={() => handleProceed()}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       className={`fixed inset-0 z-50 flex flex-col items-center justify-between p-8 sm:p-14 bg-[#030305] text-white cursor-pointer select-none transition-all duration-700 ease-out overflow-hidden ${
@@ -445,9 +446,45 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
           {t.name[lang]}
         </h1>
 
-        <p className="relative text-base sm:text-xl font-mono text-white/35 tracking-widest font-light">
-          {t.roles[lang]}
-        </p>
+        {/* Clickable Roles Navigation: Games -> Gamedev, CG -> Gamedev, Design -> Design */}
+        <div className="relative flex items-center justify-center gap-1.5 sm:gap-3 pointer-events-auto">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleProceed('gamedev');
+            }}
+            title={lang === 'ru' ? 'Сфера GameDev' : 'GameDev realm'}
+            className="group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono text-white/50 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all duration-300 cursor-pointer"
+          >
+            <span className="font-medium tracking-wider">{t.roleGames[lang]}</span>
+          </button>
+
+          <span className="text-white/20 select-none pointer-events-none">•</span>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleProceed('gamedev');
+            }}
+            title={lang === 'ru' ? 'Сфера CG' : 'CG realm'}
+            className="group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono text-white/50 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all duration-300 cursor-pointer"
+          >
+            <span className="font-medium tracking-wider">{t.roleCg[lang]}</span>
+          </button>
+
+          <span className="text-white/20 select-none pointer-events-none">•</span>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleProceed('design');
+            }}
+            title={lang === 'ru' ? 'Сфера Дизайн' : 'Design realm'}
+            className="group px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl text-base sm:text-xl font-mono text-white/50 hover:text-purple-300 hover:bg-purple-500/10 border border-transparent hover:border-purple-500/30 transition-all duration-300 cursor-pointer"
+          >
+            <span className="font-medium tracking-wider">{t.roleDesign[lang]}</span>
+          </button>
+        </div>
       </div>
 
       {/* Bottom Call to Action ("Press any key") — Clean luxury glass without icons */}

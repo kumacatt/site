@@ -3,6 +3,9 @@ export const TRANSLATIONS = {
     portfolio: { ru: 'Портфолио • 2024–2026', en: 'Portfolio • 2024–2026' },
     name: { ru: 'Игорь Чураков', en: 'Igor Churakov' },
     roles: { ru: 'Игры • CG • Дизайн', en: 'Games • CG • Design' },
+    roleGames: { ru: 'Игры', en: 'Games' },
+    roleCg: { ru: 'CG', en: 'CG' },
+    roleDesign: { ru: 'Дизайн', en: 'Design' },
     tagline: {
       ru: 'От идеи и 2D-концепта до 3D-моделей, сборки на движках и графической айдентики.',
       en: 'From concept and 2D sketching to 3D modeling, game engine integration, and visual identity.'

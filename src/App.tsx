@@ -48,7 +48,14 @@ export const App: React.FC = () => {
     return (
       <div className="relative min-h-screen bg-[#050508] text-white">
         <CustomCursor />
-        <IntroScreen onEnter={() => setHasEnteredIntro(true)} />
+        <IntroScreen
+          onEnter={(targetRealm) => {
+            setHasEnteredIntro(true);
+            if (targetRealm) {
+              setRealm(targetRealm);
+            }
+          }}
+        />
       </div>
     );
   }
