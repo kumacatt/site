@@ -48,14 +48,14 @@ export interface RefractionSettings {
 }
 
 export const DEFAULT_REFRACTION_SETTINGS: RefractionSettings = {
-  specular: 0.0,        // Pure glass by default (0% white, 100% clean video refraction)
-  distortion: 30.0,
-  chromatic: 0.8,
-  dissipation: 0.960,
-  waveRadius: 3.0,
+  specular: 0.4,        // Глянец по умолчанию (сочные солнечные блики на гребнях волн!)
+  distortion: 38.0,
+  chromatic: 1.1,
+  dissipation: 0.965,
+  waveRadius: 3.5,
 };
 
-const REFRACTION_STORAGE_KEY = 'kum_refraction_settings_v2';
+const REFRACTION_STORAGE_KEY = 'kum_refraction_settings_v3';
 
 export const loadRefractionSettings = (): RefractionSettings => {
   try {

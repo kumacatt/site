@@ -12,7 +12,7 @@ const BAYER_4X4 = [
   [15,  7, 13,  5]
 ];
 
-// Downscale factor for crisp retro dither pixels
+// Scale factor for crisp retro dither pixels
 const PIXEL_SCALE = 3;
 
 interface Spark {
@@ -67,7 +67,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
   const [isFading, setIsFading] = useState(false);
   const isFadingRef = useRef(false);
 
-  // Trigger enter smoothly
+  // Trigger enter smoothly with dither dissolve
   const handleProceed = () => {
     if (isFadingRef.current) return;
     isFadingRef.current = true;
@@ -88,7 +88,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Dual Canvas Engine: Dithering + Frosted Blur Synergy
+  // Dual Canvas Engine: Dithering + Frosted Blur Synergy across the whole scene
   useEffect(() => {
     const ditherCanvas = ditherCanvasRef.current;
     const blurCanvas = blurCanvasRef.current;
@@ -104,11 +104,11 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
     let buf32: Uint32Array | null = null;
 
     const resize = () => {
-      // Blur canvas runs at standard resolution for ultra-smooth optical glow
+      // Blur canvas runs at 1/2 resolution for smooth optical glow
       blurCanvas.width = Math.ceil(window.innerWidth / 2);
       blurCanvas.height = Math.ceil(window.innerHeight / 2);
 
-      // Dither canvas runs at retro scale for distinct Bayer matrix pixels
+      // Dither canvas runs at retro pixel scale for distinct, crunchy Bayer dots
       canvasW = Math.ceil(window.innerWidth / PIXEL_SCALE);
       canvasH = Math.ceil(window.innerHeight / PIXEL_SCALE);
       ditherCanvas.width = canvasW;
@@ -122,17 +122,17 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
 
     // Initialize 6 drifting plasma color nodes (Amber, Violet, Fuchsia, Cyan, Gold)
     const colors = [
-      { r: 245, g: 158, b: 11, rad: 280 }, // Warm Amber
-      { r: 168, g: 85,  b: 247, rad: 320 }, // Electric Purple
-      { r: 236, g: 72,  b: 153, rad: 260 }, // Hot Fuchsia
-      { r: 6,   g: 182, b: 212, rad: 240 }, // Neon Cyan
-      { r: 253, g: 224, b: 71,  rad: 220 }, // Goldenrod
-      { r: 139, g: 92,  b: 246, rad: 300 }, // Deep Indigo
+      { r: 245, g: 158, b: 11, rad: 340 }, // Warm Amber
+      { r: 168, g: 85,  b: 247, rad: 380 }, // Electric Purple
+      { r: 236, g: 72,  b: 153, rad: 300 }, // Hot Fuchsia
+      { r: 6,   g: 182, b: 212, rad: 280 }, // Neon Cyan
+      { r: 253, g: 224, b: 71,  rad: 260 }, // Goldenrod
+      { r: 139, g: 92,  b: 246, rad: 360 }, // Deep Indigo
     ];
 
     plasmaRef.current = colors.map((col, i) => {
       const angle = (i / colors.length) * Math.PI * 2;
-      const dist = 180 + Math.random() * 200;
+      const dist = 160 + Math.random() * 220;
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
       const x = cx + Math.cos(angle) * dist;
@@ -167,24 +167,24 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
       const mouse = mouseRef.current;
       const isExiting = isFadingRef.current;
       if (isExiting) {
-        exitProgress = Math.min(1.0, exitProgress + 0.035);
+        exitProgress = Math.min(1.0, exitProgress + 0.04);
       }
 
-      // 1. Update Plasma Nodes (Smooth Floating Drifts + Mouse Gravitation)
-      plasmaRef.current.forEach((node, i) => {
-        const driftX = node.baseX + Math.sin(frame * node.speed + node.phase) * 160;
-        const driftY = node.baseY + Math.cos(frame * node.speed * 0.8 + node.phase) * 120;
+      // 1. Update Plasma Nodes
+      plasmaRef.current.forEach((node) => {
+        const driftX = node.baseX + Math.sin(frame * node.speed + node.phase) * 180;
+        const driftY = node.baseY + Math.cos(frame * node.speed * 0.8 + node.phase) * 140;
 
         let fx = (driftX - node.x) * 0.025;
         let fy = (driftY - node.y) * 0.025;
 
-        // Attract toward mouse cursor
+        // Gravitate toward mouse cursor
         if (mouse.active) {
           const dx = mouse.x - node.x;
           const dy = mouse.y - node.y;
           const dist = Math.hypot(dx, dy);
-          if (dist > 10 && dist < 500) {
-            const pull = (1 - dist / 500) * 2.2;
+          if (dist > 10 && dist < 550) {
+            const pull = (1 - dist / 550) * 2.5;
             fx += (dx / dist) * pull;
             fy += (dy / dist) * pull;
           }
@@ -200,18 +200,18 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
       if (mouse.active && (mouse.x !== mouse.prevX || mouse.y !== mouse.prevY)) {
         const mDist = Math.hypot(mouse.x - mouse.prevX, mouse.y - mouse.prevY);
         if (mDist > 2) {
-          const sparkCount = Math.min(4, Math.ceil(mDist / 6));
+          const sparkCount = Math.min(5, Math.ceil(mDist / 5));
           for (let s = 0; s < sparkCount; s++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 0.5 + Math.random() * 2.5;
-            const isGold = Math.random() > 0.4;
+            const speed = 0.5 + Math.random() * 3.0;
+            const isGold = Math.random() > 0.35;
             sparksRef.current.push({
-              x: mouse.x + (Math.random() - 0.5) * 16,
-              y: mouse.y + (Math.random() - 0.5) * 16,
-              vx: Math.cos(angle) * speed + (mouse.x - mouse.prevX) * 0.1,
-              vy: Math.sin(angle) * speed + (mouse.y - mouse.prevY) * 0.1,
+              x: mouse.x + (Math.random() - 0.5) * 20,
+              y: mouse.y + (Math.random() - 0.5) * 20,
+              vx: Math.cos(angle) * speed + (mouse.x - mouse.prevX) * 0.12,
+              vy: Math.sin(angle) * speed + (mouse.y - mouse.prevY) * 0.12,
               life: 1.0,
-              maxLife: 0.02 + Math.random() * 0.03,
+              maxLife: 0.02 + Math.random() * 0.035,
               r: isGold ? 253 : 168,
               g: isGold ? 224 : 85,
               b: isGold ? 71 : 247,
@@ -235,7 +235,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
         }
       }
 
-      // 3. Render Blur Canvas (Dreamlike Atmospheric Glow in Background)
+      // 3. Render Blur Canvas (Deep Atmospheric Background Aurora)
       const bW = blurCanvas.width;
       const bH = blurCanvas.height;
       blurCtx.clearRect(0, 0, bW, bH);
@@ -246,8 +246,8 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
         const brad = (node.radius / window.innerWidth) * bW;
 
         const grad = blurCtx.createRadialGradient(bx, by, 0, bx, by, brad);
-        grad.addColorStop(0, `rgba(${node.r}, ${node.g}, ${node.b}, 0.45)`);
-        grad.addColorStop(0.5, `rgba(${node.r}, ${node.g}, ${node.b}, 0.18)`);
+        grad.addColorStop(0, `rgba(${node.r}, ${node.g}, ${node.b}, 0.5)`);
+        grad.addColorStop(0.5, `rgba(${node.r}, ${node.g}, ${node.b}, 0.2)`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         blurCtx.fillStyle = grad;
@@ -256,7 +256,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
         blurCtx.fill();
       });
 
-      // 4. Render Dither Canvas (Retro Bayer Ordered Dithering Matrix Overlay)
+      // 4. Render Dither Canvas (Retro Bayer Ordered Dithering Matrix covering the whole screen)
       buf32.fill(0);
 
       const mouseScaleX = mouse.x / PIXEL_SCALE;
@@ -296,7 +296,7 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
             if (dSq < node.radSq) {
               const falloff = 1.0 - Math.sqrt(dSq) / node.rad;
               const weight = falloff * falloff;
-              totalIntensity += weight * 0.45;
+              totalIntensity += weight * 0.82;
               accR += node.r * weight;
               accG += node.g * weight;
               accB += node.b * weight;
@@ -308,49 +308,54 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
             const mdx = cx - mouseScaleX;
             const mdy = cy - mouseScaleY;
             const mDist = Math.hypot(mdx, mdy);
-            const mRadius = 110;
+            const mRadius = 140;
             if (mDist < mRadius) {
-              const mGlow = Math.pow(1.0 - mDist / mRadius, 1.8);
-              totalIntensity += mGlow * 0.95;
-              accR += 253 * mGlow; // Warm golden halo
+              const mGlow = Math.pow(1.0 - mDist / mRadius, 1.6);
+              totalIntensity += mGlow * 1.25;
+              accR += 253 * mGlow; // Golden halo
               accG += 224 * mGlow;
               accB += 71 * mGlow;
             }
           }
 
-          // Subtle idle stardust breathing
-          const idleWave = Math.sin(frame * 0.02 + (cx * 0.05 + cy * 0.05)) * 0.03;
-          totalIntensity += 0.04 + idleWave;
+          // Ambient stardust matrix breathing
+          const idleWave = Math.sin(frame * 0.025 + (cx * 0.08 + cy * 0.08)) * 0.04;
+          totalIntensity += 0.06 + idleWave;
 
           // Dissolve effect on screen exit
           if (exitProgress > 0) {
-            totalIntensity -= exitProgress * 1.5;
+            totalIntensity -= exitProgress * 1.6;
           }
 
           let pixel = 0;
 
+          // Base resting dither dot (gives the entire screen a subtle retro pixel texture)
+          if (bRow[cx % 4] === 0 && exitProgress === 0) {
+            pixel = makeColor(255, 255, 255, 16);
+          }
+
           // Dither Threshold Evaluation
           if (totalIntensity > 0.02) {
             const normalizedIntensity = Math.min(1.0, totalIntensity);
-            // Sharp power contrast curve
-            const shaped = Math.pow(normalizedIntensity, 1.4);
+            // Sharp power contrast curve for crisp halftone dither
+            const shaped = Math.pow(normalizedIntensity, 1.3);
 
             if (shaped > bayerThresh) {
               const avgR = totalIntensity > 0.01 ? Math.min(255, Math.round(accR / totalIntensity)) : 255;
               const avgG = totalIntensity > 0.01 ? Math.min(255, Math.round(accG / totalIntensity)) : 255;
               const avgB = totalIntensity > 0.01 ? Math.min(255, Math.round(accB / totalIntensity)) : 255;
 
-              // High-intensity core has glowing golden-white highlights
+              // Glowing golden-white core highlights
               let finalR = avgR;
               let finalG = avgG;
               let finalB = avgB;
-              if (shaped > 0.7) {
-                finalR = Math.min(255, avgR + 50);
-                finalG = Math.min(255, avgG + 40);
-                finalB = Math.min(255, avgB + 30);
+              if (shaped > 0.65) {
+                finalR = Math.min(255, avgR + 60);
+                finalG = Math.min(255, avgG + 50);
+                finalB = Math.min(255, avgB + 35);
               }
 
-              const alpha = Math.min(235, Math.floor(60 + shaped * 175));
+              const alpha = Math.min(245, Math.floor(75 + shaped * 170));
               pixel = makeColor(finalR, finalG, finalB, alpha);
             }
           }
@@ -368,7 +373,6 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
         if (sx >= 0 && sx < canvasW && sy >= 0 && sy < canvasH) {
           const alpha = Math.floor(sp.life * 255);
           buf32[sy * canvasW + sx] = makeColor(sp.r, sp.g, sp.b, alpha);
-          // 2x2 spark cluster for visibility
           if (sx + 1 < canvasW) buf32[sy * canvasW + sx + 1] = makeColor(sp.r, sp.g, sp.b, alpha);
           if (sy + 1 < canvasH) buf32[(sy + 1) * canvasW + sx] = makeColor(sp.r, sp.g, sp.b, alpha);
         }
@@ -401,66 +405,74 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
       onClick={handleProceed}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-between p-8 sm:p-14 bg-[#050508] text-white cursor-pointer select-none transition-all duration-700 ease-out ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-between p-8 sm:p-14 bg-[#050508] text-white cursor-pointer select-none transition-all duration-700 ease-out overflow-hidden ${
         isFading ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
-      {/* 1. LAYER A: Dreamlike Chromatic Blur Glow (Smooth 48px Atmospheric Blur) */}
+      {/* 1. LAYER A: Dreamlike Chromatic Blur Glow (48px Smooth Blur behind everything) */}
       <canvas
         ref={blurCanvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none filter blur-[48px] opacity-80"
+        className="absolute inset-0 w-full h-full pointer-events-none z-0 filter blur-[48px] opacity-75"
         aria-hidden="true"
       />
 
-      {/* 2. LAYER B: Retro Bayer Ordered Dither Matrix Overlay (Crisp Stardust Pixel Grain) */}
+      {/* 2. LAYER B: Atmospheric Vignette (NO backdrop-blur, preserving 100% dither sharpness!) */}
+      <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#050508]/30 to-[#050508]/80 pointer-events-none z-[1]" />
+
+      {/* 3. LAYER C: Retro Bayer Dither Matrix Stardust Overlay covering the ENTIRE scene */}
       <canvas
         ref={ditherCanvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none z-[1] opacity-90"
+        className="absolute inset-0 w-full h-full pointer-events-none z-[15] opacity-95 mix-blend-screen"
         style={{
           imageRendering: 'pixelated',
         }}
         aria-hidden="true"
       />
 
-      {/* 3. LAYER C: Soft frosted glass vignette for cinematic depth */}
-      <div className="absolute inset-0 bg-[#050508]/30 backdrop-blur-[35px] pointer-events-none z-[2]" />
-
       {/* Top bar with subtle badge and language switcher */}
-      <div className="relative z-20 w-full flex items-center justify-between pt-2">
-        <div className="flex items-center gap-2 text-xs font-mono text-white/50 uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
+      <div className="relative z-10 w-full flex items-center justify-between pt-2 pointer-events-auto">
+        <div className="flex items-center gap-2 text-xs font-mono text-white/70 uppercase tracking-widest bg-black/60 px-3.5 py-1.5 rounded-full border border-amber-500/30 backdrop-blur-md shadow-lg">
+          <span className="text-amber-400 font-mono text-[10px]">░</span>
           <Sparkles size={13} className="text-amber-400 animate-pulse" />
           <span>{t.portfolio[lang]}</span>
+          <span className="text-amber-400 font-mono text-[10px]">░</span>
         </div>
         <LanguageSwitch />
       </div>
 
       {/* Center Hero Identity Card */}
-      <div className="relative z-20 text-center max-w-2xl flex flex-col items-center space-y-4 my-auto pointer-events-none">
+      <div className="relative z-10 text-center max-w-3xl flex flex-col items-center space-y-4 my-auto pointer-events-none">
         {/* Glow halo behind title */}
-        <div className="absolute -inset-10 bg-gradient-to-r from-amber-500/10 via-purple-600/15 to-pink-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -inset-14 bg-gradient-to-r from-amber-500/15 via-purple-600/20 to-pink-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        <h1 className="relative text-4xl sm:text-7xl font-black tracking-tight text-white uppercase font-sans drop-shadow-[0_10px_35px_rgba(0,0,0,0.9)]">
+        <h1 className="relative text-4xl sm:text-7xl md:text-8xl font-black tracking-tight text-white uppercase font-sans drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)]">
           {t.name[lang]}
         </h1>
 
-        <p className="relative text-base sm:text-2xl font-mono text-white/90 tracking-wide font-light">
+        <p className="relative text-base sm:text-2xl font-mono text-amber-200/90 tracking-wide font-light drop-shadow">
           {t.roles[lang]}
         </p>
 
-        <p className="relative text-xs sm:text-sm font-mono text-white/55 max-w-md pt-2 leading-relaxed">
+        <p className="relative text-xs sm:text-sm font-mono text-white/60 max-w-md pt-2 leading-relaxed drop-shadow">
           {t.tagline[lang]}
         </p>
       </div>
 
-      {/* Bottom Motivation Call to Action ("Press any key") */}
-      <div className="relative z-20 flex flex-col items-center space-y-3 pb-6">
-        <div className="group flex items-center gap-3 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-amber-500/30 hover:border-amber-400/60 backdrop-blur-2xl text-xs sm:text-sm font-mono text-white transition-all shadow-[0_0_35px_rgba(245,158,11,0.2)] hover:shadow-[0_0_50px_rgba(245,158,11,0.4)] animate-pulse">
+      {/* Bottom Motivation Call to Action ("Press any key") with Dithered Halftone Accent */}
+      <div className="relative z-10 flex flex-col items-center space-y-3 pb-6 pointer-events-auto">
+        <div className="group flex items-center gap-3 px-7 py-3.5 rounded-full bg-black/65 hover:bg-neutral-950/90 border border-amber-500/40 hover:border-amber-400/80 backdrop-blur-xl text-xs sm:text-sm font-mono text-white transition-all shadow-[0_0_35px_rgba(245,158,11,0.25)] hover:shadow-[0_0_55px_rgba(245,158,11,0.5)] animate-pulse">
+          <span className="text-amber-400/70 font-mono text-[11px] tracking-widest hidden sm:inline select-none">░▒▓</span>
           <Wand2 size={14} className="text-amber-400 group-hover:rotate-45 transition-transform" />
-          <span>{t.pressAnyKey[lang]}</span>
-          <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform text-amber-300" />
+          <span className="font-semibold text-white group-hover:text-amber-200 transition-colors">
+            {t.pressAnyKey[lang]}
+          </span>
+          <ArrowRight size={14} className="group-hover:translate-x-1.5 transition-transform text-amber-300" />
+          <span className="text-amber-400/70 font-mono text-[11px] tracking-widest hidden sm:inline select-none">▓▒░</span>
         </div>
-        <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
-          {t.clickHint[lang]}
+        <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+          <span>░</span>
+          <span>{t.clickHint[lang]}</span>
+          <span>░</span>
         </span>
       </div>
     </div>
