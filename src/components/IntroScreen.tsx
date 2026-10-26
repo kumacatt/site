@@ -545,39 +545,39 @@ export const IntroScreen: React.FC<IntroScreenProps> = ({ onEnter }) => {
           {t.name[lang]}
         </h1>
 
-        {/* Clickable Two Realms Navigation: Игры CG / Дизайн Identica */}
-        <div className="relative flex flex-wrap items-center justify-center gap-3 sm:gap-6 pointer-events-auto pt-2">
-          {/* Button 1: Игры CG */}
+        {/* Clickable Typographic Realms: ИГРЫ / CG / ДИЗАЙН / АЙДЕНТИКА (No frames, purely clickable text) */}
+        <div className="relative flex flex-wrap items-center justify-center gap-2 sm:gap-3 pointer-events-auto pt-2">
+          {/* Button 1: ИГРЫ / CG */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               handleProceed('gamedev');
             }}
-            title={lang === 'ru' ? 'Сфера Игры CG' : 'Games CG realm'}
-            className={`group relative flex items-center gap-2.5 px-6 py-3 sm:px-8 sm:py-4 rounded-2xl text-base sm:text-xl font-mono uppercase tracking-wider font-bold backdrop-blur-2xl transition-all duration-300 cursor-pointer active:scale-95 ${
+            title={lang === 'ru' ? 'Сфера Игры / CG' : 'Games / CG realm'}
+            className={`group text-lg sm:text-2xl md:text-3xl font-mono uppercase tracking-widest font-bold transition-all duration-300 cursor-pointer p-1 active:scale-95 ${
               pendingRealm === 'gamedev'
-                ? 'text-amber-300 bg-amber-500/25 border border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.5)] scale-105'
-                : 'text-white/85 bg-white/[0.05] hover:text-amber-300 hover:bg-amber-500/15 border border-white/15 hover:border-amber-400/60 shadow-[0_8px_32px_rgba(0,0,0,0.5)] hover:shadow-[0_0_30px_rgba(245,158,11,0.35)] hover:scale-102'
+                ? 'text-amber-300 drop-shadow-[0_0_24px_rgba(245,158,11,0.85)] scale-105'
+                : 'text-white/60 hover:text-amber-300 hover:drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]'
             }`}
           >
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 group-hover:shadow-[0_0_12px_rgba(245,158,11,1)] transition-all flex-shrink-0" />
             <span>{t.roleGamesCg[lang]}</span>
           </button>
 
-          {/* Button 2: Дизайн Identica */}
+          <span className="text-white/25 select-none pointer-events-none text-lg sm:text-2xl md:text-3xl font-mono px-1">/</span>
+
+          {/* Button 2: ДИЗАЙН / АЙДЕНТИКА */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               handleProceed('design');
             }}
-            title={lang === 'ru' ? 'Сфера Дизайн Identica' : 'Design Identica realm'}
-            className={`group relative flex items-center gap-2.5 px-6 py-3 sm:px-8 sm:py-4 rounded-2xl text-base sm:text-xl font-mono uppercase tracking-wider font-bold backdrop-blur-2xl transition-all duration-300 cursor-pointer active:scale-95 ${
+            title={lang === 'ru' ? 'Сфера Дизайн / Айдентика' : 'Design / Identity realm'}
+            className={`group text-lg sm:text-2xl md:text-3xl font-mono uppercase tracking-widest font-bold transition-all duration-300 cursor-pointer p-1 active:scale-95 ${
               pendingRealm === 'design'
-                ? 'text-purple-200 bg-purple-500/25 border border-purple-400 shadow-[0_0_35px_rgba(168,85,247,0.5)] scale-105'
-                : 'text-white/85 bg-white/[0.05] hover:text-purple-300 hover:bg-purple-500/15 border border-white/15 hover:border-purple-400/60 shadow-[0_8px_32px_rgba(0,0,0,0.5)] hover:shadow-[0_0_30px_rgba(168,85,247,0.35)] hover:scale-102'
+                ? 'text-purple-300 drop-shadow-[0_0_24px_rgba(168,85,247,0.85)] scale-105'
+                : 'text-white/60 hover:text-purple-300 hover:drop-shadow-[0_0_20px_rgba(168,85,247,0.5)]'
             }`}
           >
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-400 group-hover:shadow-[0_0_12px_rgba(168,85,247,1)] transition-all flex-shrink-0" />
             <span>{t.roleDesignIdentica[lang]}</span>
           </button>
         </div>
