@@ -16,7 +16,7 @@ void main() {
 }
 `;
 
-// Fragment Shader: hardware bilinear texture sampling with liquid refraction & chromatic dispersion
+// Fragment Shader: hardware bilinear texture sampling with optical liquid refraction & chromatic dispersion
 const FS_SOURCE = `
 precision highp float;
 varying vec2 vUv;
@@ -42,8 +42,10 @@ void main() {
     coverUv.x = (coverUv.x - 0.5) / scale + 0.5;
   }
 
+  // Flip Y coordinate so video is rendered right-side up
+  coverUv.y = 1.0 - coverUv.y;
+
   // 2. Hardware bilinear sample of fluid field (velocity in R & G, density in B)
-  // WebGL texture Y coordinates are inverted relative to DOM
   vec2 fluidUv = vec2(vUv.x, 1.0 - vUv.y);
   vec4 fluid = texture2D(u_fluid, fluidUv);
   vec2 vel = (fluid.rg - 0.5) * 2.0;
@@ -51,20 +53,21 @@ void main() {
   float speed = length(vel);
 
   // If fluid is at rest, render undistorted native 1080p video directly
-  if (speed < 0.0005 && density < 0.001) {
+  if (speed < 0.0005 && density * 0.5 < 0.001) {
     gl_FragColor = texture2D(u_video, coverUv);
     return;
   }
 
   // 3. Aspect-corrected displacement vector
-  vec2 disp = vel * (u_distortion * 0.0012);
+  vec2 disp = vel * (u_distortion * 0.0014);
   disp.x /= screenAspect;
 
   // 4. Chromatic dispersion (prism Red/Blue split)
-  float chrom = u_chromatic * 0.0035;
-  vec2 uvR = clamp(coverUv + disp * (1.0 + chrom * 2.0), 0.001, 0.999);
+  // Scaled by 0.40 so rainbow fringes are vividly and beautifully visible
+  float chrom = u_chromatic * 0.40;
+  vec2 uvR = clamp(coverUv + disp * (1.0 + chrom), 0.001, 0.999);
   vec2 uvG = clamp(coverUv + disp, 0.001, 0.999);
-  vec2 uvB = clamp(coverUv + disp * (1.0 - chrom * 2.0), 0.001, 0.999);
+  vec2 uvB = clamp(coverUv + disp * (1.0 - chrom), 0.001, 0.999);
 
   float r = texture2D(u_video, uvR).r;
   float g = texture2D(u_video, uvG).g;
@@ -80,10 +83,12 @@ void main() {
 
 interface DesignRefractionFieldProps {
   videoRef: React.RefObject<HTMLVideoElement>;
+  canvasRef?: React.RefObject<HTMLCanvasElement>;
 }
 
-export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ videoRef }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ videoRef, canvasRef: externalRef }) => {
+  const internalRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = externalRef || internalRef;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -159,7 +164,7 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    // Initialize with a blank 1x1 dark pixel until video arrives
+    // Initialize with a dark fallback
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([10, 8, 14, 255]));
 
     // Fluid Texture (Texture 1) - 128x72 RGBA
@@ -433,7 +438,7 @@ export const DesignRefractionField: React.FC<DesignRefractionFieldProps> = ({ vi
       ref={canvasRef}
       className="absolute inset-0 w-full h-full pointer-events-none z-0 transition-opacity duration-1000 opacity-65"
       style={{
-        willChange: 'opacity, transform',
+        willChange: 'opacity, filter',
       }}
       aria-hidden="true"
     />

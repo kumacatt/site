@@ -219,7 +219,7 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
       {/* Floating Tuner Modal Panel */}
       {isOpen && (
         <div
-          className={`w-84 max-w-[calc(100vw-2rem)] p-5 rounded-3xl bg-neutral-950/95 backdrop-blur-2xl shadow-[0_10px_50px_rgba(0,0,0,0.85)] text-white space-y-4 animate-fade-in border ${
+          className={`w-[340px] max-w-[calc(100vw-2rem)] p-5 rounded-3xl bg-neutral-950/95 backdrop-blur-2xl shadow-[0_10px_50px_rgba(0,0,0,0.85)] text-white space-y-4 animate-fade-in border box-border ${
             isDesign ? 'border-purple-500/35' : 'border-amber-500/35'
           }`}
         >
@@ -299,10 +299,10 @@ baseOpacity: ${(ditherSettings.baseOpacity * 100).toFixed(1)}%`;
 
               {/* Slider 1: Specular White Highlight Glint */}
               <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px] font-mono">
+                <div className="flex justify-between items-center text-[11px] font-mono">
                   <span className="text-white/80">Яркость белого блика (Specular):</span>
-                  <span className="text-purple-400 font-bold">
-                    {refractionSettings.specular === 0 ? '0% (Выкл)' : `${(refractionSettings.specular * 100).toFixed(0)}%`}
+                  <span className="text-purple-400 font-bold tabular-nums min-w-[48px] text-right">
+                    {refractionSettings.specular === 0 ? '0%' : `${(refractionSettings.specular * 100).toFixed(0)}%`}
                   </span>
                 </div>
                 <input

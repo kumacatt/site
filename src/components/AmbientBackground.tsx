@@ -11,6 +11,7 @@ interface AmbientBackgroundProps {
 export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRealm = 'gamedev' }) => {
   const gamedevVideoRef = useRef<HTMLVideoElement>(null);
   const designVideoRef = useRef<HTMLVideoElement>(null);
+  const designCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Dynamic scroll-based subtle blur for surreal depth
   useEffect(() => {
@@ -21,7 +22,11 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
       const designFilter = `blur(${blurAmount}px) brightness(0.70) saturate(1.25)`;
       if (gamedevVideoRef.current) gamedevVideoRef.current.style.filter = gamedevFilter;
       if (designVideoRef.current) designVideoRef.current.style.filter = designFilter;
+      if (designCanvasRef.current) designCanvasRef.current.style.filter = designFilter;
     };
+
+    // Apply initial state
+    handleScroll();
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -72,7 +77,7 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
 
       {/* 3. Realm Fields: GameDev Retro Bayer Dither vs Design Full-Res WebGL Refraction */}
       {!isDesign && <GamedevDitherField />}
-      {isDesign && <DesignRefractionField videoRef={designVideoRef} />}
+      {isDesign && <DesignRefractionField videoRef={designVideoRef} canvasRef={designCanvasRef} />}
 
       {/* Dreamlike Ambient Color Orbs matching the active realm */}
       <div
