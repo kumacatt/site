@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SOFTWARE_MAP, SoftwareItem } from '../data/software';
+import { getAssetUrl } from '../utils/asset';
 
 interface NodeState {
   item: SoftwareItem;
@@ -213,6 +214,22 @@ export const SoftwareGraph: React.FC = () => {
               {sw.name}
             </div>
           )}
+
+          {/* Subtle White / Silver Holographic Dither Halo Underneath */}
+          <div
+            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 pointer-events-none -z-10 rounded-full transition-all duration-300 ${
+              hoveredNode === sw.id ? 'opacity-75 scale-125' : 'opacity-35 scale-100'
+            }`}
+            style={{
+              backgroundImage: `url(${getAssetUrl('/dither-sharp.svg')})`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: '8px 8px',
+              imageRendering: 'pixelated',
+              maskImage: 'radial-gradient(circle 26px at center, black 0%, rgba(0,0,0,0.45) 50%, transparent 100%)',
+              WebkitMaskImage: 'radial-gradient(circle 26px at center, black 0%, rgba(0,0,0,0.45) 50%, transparent 100%)',
+              filter: 'drop-shadow(0 0 6px rgba(255, 255, 255, 0.6))',
+            }}
+          />
 
           {/* Clean pure icon with comfortable hit area */}
           <div
