@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { SOFTWARE_MAP, SoftwareItem } from '../data/software';
 import { getAssetUrl } from '../utils/asset';
 
@@ -16,18 +16,11 @@ interface NodeState {
 
 export const SoftwareGraph: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
-  const hoveredNodeRef = useRef<string | null>(null);
   const mouseRef = useRef<{ x: number; y: number; active: boolean }>({ x: -1000, y: -1000, active: false });
   const nodesRef = useRef<NodeState[]>([]);
   const animFrameRef = useRef<number>();
 
   const softwareList = Object.values(SOFTWARE_MAP);
-
-  // Sync state with ref for tick loop
-  useEffect(() => {
-    hoveredNodeRef.current = hoveredNode;
-  }, [hoveredNode]);
 
   useEffect(() => {
     // Spatial distribution across canvas with generous spacing
@@ -75,18 +68,10 @@ export const SoftwareGraph: React.FC = () => {
       const w = rect.width;
       const h = rect.height;
       const mouse = mouseRef.current;
-      const activeHovered = hoveredNodeRef.current;
       const nodes = nodesRef.current;
 
-      // 1. Spring forces to home & gentle mouse sway
+      // 1. Spring forces to home & smooth organic mouse sway/reaction (no freeze!)
       nodes.forEach(node => {
-        // If hovered, freeze in place so it stays steady
-        if (activeHovered === node.item.id) {
-          node.vx *= 0.5;
-          node.vy *= 0.5;
-          return;
-        }
-
         // Natural floating zero-gravity drift
         const driftX = Math.sin(t * node.speed + node.phase) * 12;
         const driftY = Math.cos(t * node.speed * 0.85 + node.phase) * 12;
@@ -101,17 +86,19 @@ export const SoftwareGraph: React.FC = () => {
         let fx = (homeX - node.x) * k;
         let fy = (homeY - node.y) * k;
 
-        // Gentle magnetic pull toward cursor
+        // Organic mouse repulsion / fluid yield (smoothly reacts to mouse without freezing)
         if (mouse.active) {
-          const dx = mouse.x - node.x;
-          const dy = mouse.y - node.y;
+          const dx = node.x - mouse.x;
+          const dy = node.y - mouse.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          const maxDist = 160;
+          const maxDist = 145; // interaction radius
 
-          if (dist < maxDist && dist > 5) {
-            const pullForce = (1 - dist / maxDist) * 1.6;
-            fx += (dx / dist) * pullForce;
-            fy += (dy / dist) * pullForce;
+          if (dist < maxDist && dist > 0.1) {
+            // Smooth quadratic falloff: yields and flows away from cursor
+            const proximity = (maxDist - dist) / maxDist;
+            const pushForce = Math.pow(proximity, 1.4) * 3.6;
+            fx += (dx / dist) * pushForce;
+            fy += (dy / dist) * pushForce;
           }
         }
 
@@ -127,8 +114,8 @@ export const SoftwareGraph: React.FC = () => {
         }
       });
 
-      // 2. PAIRWISE COLLISION REPULSION (Icons push each other apart so they NEVER overlap!)
-      const minDist = 78; // Minimum distance between icon centers
+      // 2. PAIRWISE COLLISION REPULSION (Icons push each other apart so they never overlap)
+      const minDist = 78;
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i];
@@ -143,28 +130,25 @@ export const SoftwareGraph: React.FC = () => {
             const nx = dx / dist;
             const ny = dy / dist;
 
-            if (activeHovered !== a.item.id) {
-              a.vx -= nx * repelForce;
-              a.vy -= ny * repelForce;
-              a.x -= nx * repelForce * 0.5;
-              a.y -= ny * repelForce * 0.5;
-            }
+            a.vx -= nx * repelForce;
+            a.vy -= ny * repelForce;
+            a.x -= nx * repelForce * 0.5;
+            a.y -= ny * repelForce * 0.5;
 
-            if (activeHovered !== b.item.id) {
-              b.vx += nx * repelForce;
-              b.vy += ny * repelForce;
-              b.x += nx * repelForce * 0.5;
-              b.y += ny * repelForce * 0.5;
-            }
+            b.vx += nx * repelForce;
+            b.vy += ny * repelForce;
+            b.x += nx * repelForce * 0.5;
+            b.y += ny * repelForce * 0.5;
           }
         }
       }
 
-      // 3. Update positions directly on DOM elements
+      // 3. Update positions directly on DOM elements with subtle physical tilt
       nodes.forEach(node => {
         const el = document.getElementById(`graph-node-${node.item.id}`);
         if (el) {
-          el.style.transform = `translate3d(${node.x - 28}px, ${node.y - 28}px, 0)`;
+          const tilt = Math.max(-14, Math.min(14, node.vx * 1.5));
+          el.style.transform = `translate3d(${node.x - 28}px, ${node.y - 28}px, 0) rotate(${tilt}deg)`;
         }
       });
 
@@ -198,28 +182,17 @@ export const SoftwareGraph: React.FC = () => {
       onMouseLeave={handleMouseLeave}
       className="relative w-full h-[360px] sm:h-[420px] overflow-hidden select-none"
     >
-      {/* Floating Software Icons with collision avoidance */}
+      {/* Floating Software Icons with collision avoidance & mouse reaction (no tooltips, no freezing, unhoverable) */}
       {softwareList.map(sw => (
         <div
           key={sw.id}
           id={`graph-node-${sw.id}`}
-          onMouseEnter={() => setHoveredNode(sw.id)}
-          onMouseLeave={() => setHoveredNode(null)}
-          className="absolute top-0 left-0 cursor-pointer p-2 z-10"
+          className="absolute top-0 left-0 pointer-events-none p-2 z-10"
           style={{ willChange: 'transform' }}
         >
-          {/* Tooltip on hover */}
-          {hoveredNode === sw.id && (
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-0.5 rounded-full bg-black/90 backdrop-blur-md border border-white/20 text-[11px] font-mono text-amber-300 pointer-events-none shadow-xl z-30 animate-fade-in">
-              {sw.name}
-            </div>
-          )}
-
           {/* Subtle White / Silver Holographic Dither Halo Underneath */}
           <div
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 pointer-events-none -z-10 rounded-full transition-all duration-300 ${
-              hoveredNode === sw.id ? 'opacity-75 scale-125' : 'opacity-35 scale-100'
-            }`}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 pointer-events-none -z-10 rounded-full opacity-35"
             style={{
               backgroundImage: `url(${getAssetUrl('/dither-sharp.svg')})`,
               backgroundRepeat: 'repeat',
@@ -231,18 +204,13 @@ export const SoftwareGraph: React.FC = () => {
             }}
           />
 
-          {/* Clean pure icon with comfortable hit area */}
-          <div
-            className={`w-12 h-12 flex items-center justify-center transition-transform duration-200 ${
-              hoveredNode === sw.id
-                ? 'scale-130 filter drop-shadow-[0_0_20px_rgba(255,255,255,0.7)]'
-                : 'hover:scale-120 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] opacity-85 hover:opacity-100'
-            }`}
-          >
+          {/* Clean pure icon responding naturally to movement */}
+          <div className="w-12 h-12 flex items-center justify-center filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.85)] opacity-85">
             <img
               src={sw.icon}
               alt={sw.name}
-              className="w-full h-full object-contain pointer-events-none"
+              className="w-full h-full object-contain pointer-events-none select-none"
+              draggable={false}
             />
           </div>
         </div>

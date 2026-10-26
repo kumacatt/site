@@ -10,7 +10,7 @@ export interface RouteState {
 export function useHashRoute() {
   const parseHash = (): RouteState => {
     const raw = window.location.hash.replace(/^#\/?/, '').trim();
-    if (!raw || raw === 'portal') {
+    if (!raw || raw === 'portal' || raw === 'intro' || raw === 'welcome') {
       return { currentRealm: null, activeProjectId: null, section: null };
     }
 
@@ -62,13 +62,13 @@ export function useHashRoute() {
     if (route.currentRealm) {
       navigateTo(route.currentRealm);
     } else {
-      navigateTo('portal');
+      navigateTo('intro');
     }
   }, [route.currentRealm, navigateTo]);
 
   const setRealm = useCallback((realm: RealmType | null) => {
     if (!realm) {
-      navigateTo('portal');
+      navigateTo('intro');
     } else {
       navigateTo(realm);
     }

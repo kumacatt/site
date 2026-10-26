@@ -6,6 +6,8 @@ export const TRANSLATIONS = {
     roleGames: { ru: 'Игры', en: 'Games' },
     roleCg: { ru: 'CG', en: 'CG' },
     roleDesign: { ru: 'Дизайн', en: 'Design' },
+    roleGamesCg: { ru: 'Игры CG', en: 'Games CG' },
+    roleDesignIdentica: { ru: 'Дизайн Identica', en: 'Design Identica' },
     tagline: {
       ru: 'От идеи и 2D-концепта до 3D-моделей, сборки на движках и графической айдентики.',
       en: 'From concept and 2D sketching to 3D modeling, game engine integration, and visual identity.'
@@ -51,7 +53,7 @@ export const TRANSLATIONS = {
     design: { ru: 'Дизайн', en: 'Design' },
     about: { ru: 'Обо мне', en: 'About' },
     contacts: { ru: 'Контакты', en: 'Contacts' },
-    portal: { ru: 'Выбрать сферу', en: 'Portals' },
+    portal: { ru: 'Приветственный экран', en: 'Welcome Screen' },
     copied: { ru: 'Скопировано!', en: 'Copied!' },
     copyTabLink: { ru: 'Скопировать ссылку на сферу', en: 'Copy link to realm' }
   },

@@ -13,21 +13,48 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
   const gamedevVideoRef = useRef<HTMLVideoElement>(null);
   const designVideoRef = useRef<HTMLVideoElement>(null);
   const designCanvasRef = useRef<HTMLCanvasElement>(null);
+  const scrollDimmerRef = useRef<HTMLDivElement>(null);
 
-  // Dynamic scroll-based subtle blur for surreal depth
+  // Dynamic scroll-based blur and rich darkening ("затемнение приличное такое")
   useEffect(() => {
-    const handleScroll = () => {
+    let ticking = false;
+
+    const updateVisuals = () => {
       const scrollY = window.scrollY;
-      const blurAmount = Math.min(18, scrollY * 0.025);
-      const gamedevFilter = `blur(${blurAmount}px) brightness(0.65) saturate(1.2)`;
-      const designFilter = `blur(${blurAmount}px) brightness(0.70) saturate(1.25)`;
+      // Reaches full effect over 600px of scrolling (past the hero)
+      const scrollProgress = Math.min(1, Math.max(0, scrollY / 600));
+      // Smooth cubic-like easing for natural depth transition
+      const ease = scrollProgress * scrollProgress * (3 - 2 * scrollProgress);
+
+      // Blur increases smoothly up to 24px
+      const blurAmount = ease * 24;
+      // Video brightness drops significantly from 0.65/0.70 down to 0.16/0.18
+      const gamedevBrightness = Math.max(0.16, 0.65 - ease * 0.49);
+      const designBrightness = Math.max(0.18, 0.70 - ease * 0.52);
+
+      const gamedevFilter = `blur(${blurAmount.toFixed(1)}px) brightness(${gamedevBrightness.toFixed(2)}) saturate(1.2)`;
+      const designFilter = `blur(${blurAmount.toFixed(1)}px) brightness(${designBrightness.toFixed(2)}) saturate(1.25)`;
+
       if (gamedevVideoRef.current) gamedevVideoRef.current.style.filter = gamedevFilter;
       if (designVideoRef.current) designVideoRef.current.style.filter = designFilter;
       if (designCanvasRef.current) designCanvasRef.current.style.filter = designFilter;
+
+      // Darkening scrim smoothly reaches 0.82 opacity
+      if (scrollDimmerRef.current) {
+        scrollDimmerRef.current.style.opacity = (ease * 0.82).toFixed(3);
+      }
+      ticking = false;
+    };
+
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(updateVisuals);
+        ticking = true;
+      }
     };
 
     // Apply initial state
-    handleScroll();
+    updateVisuals();
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -141,6 +168,13 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({ currentRea
         className={`absolute bottom-1/3 right-1/6 w-[600px] h-[600px] rounded-full blur-[170px] transition-colors duration-1000 animate-pulse ${
           isDesign ? 'bg-pink-600/15' : 'bg-amber-500/15'
         }`}
+      />
+
+      {/* Scroll-based dynamic deep darkening overlay ("затемнение приличное такое") */}
+      <div
+        ref={scrollDimmerRef}
+        className="absolute inset-0 bg-[#040407] pointer-events-none z-15 will-change-[opacity]"
+        style={{ opacity: 0 }}
       />
 
       {/* Dark Vignette Overlay for readability */}

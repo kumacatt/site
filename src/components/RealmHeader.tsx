@@ -42,8 +42,9 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
           className="flex items-center gap-2 group px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/15 hover:border-amber-400/40 hover:bg-black/75 transition-all shadow-xl flex-shrink-0 active:scale-95"
         >
           <Compass size={18} className="text-amber-400 group-hover:rotate-45 transition-transform duration-300 flex-shrink-0" />
-          <span className="hidden sm:inline text-sm font-bold text-white tracking-widest uppercase font-sans">
-            {t.name[lang]}
+          <span className="text-xs sm:text-sm font-bold text-white tracking-widest uppercase font-sans">
+            <span className="inline sm:hidden">{lang === 'ru' ? 'Игорь' : 'Igor'}</span>
+            <span className="hidden sm:inline">{t.name[lang]}</span>
           </span>
         </button>
 

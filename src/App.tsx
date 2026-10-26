@@ -41,12 +41,6 @@ export const App: React.FC = () => {
     return () => clearTimeout(idleTimer);
   }, []);
   
-  // Track intro screen state (shows on first visit to root/portal unless direct link was used)
-  const [hasEnteredIntro, setHasEnteredIntro] = useState(() => {
-    // If user opened with direct hash (e.g. #gamedev or #design), skip intro
-    const hash = window.location.hash.replace(/^#\/?/, '').trim();
-    return hash === 'gamedev' || hash === 'design' || hash.startsWith('project/');
-  });
 
   const activeProject = PROJECTS.find(p => p.id === route.activeProjectId) || null;
 
@@ -69,29 +63,16 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. If user hasn't pressed key/clicked on root entrance, show IntroScreen
-  if (!hasEnteredIntro && route.currentRealm === null) {
+  // 1. If on root entrance or user navigated back to welcome screen (null realm)
+  if (route.currentRealm === null) {
     return (
       <div className="relative min-h-screen bg-[#050508] text-white">
         <CustomCursor />
         <IntroScreen
           onEnter={(targetRealm) => {
-            setHasEnteredIntro(true);
-            if (targetRealm) {
-              setRealm(targetRealm);
-            }
+            setRealm(targetRealm || 'gamedev');
           }}
         />
-      </div>
-    );
-  }
-
-  // 2. If on Portal view (after intro dismissed)
-  if (route.currentRealm === null) {
-    return (
-      <div className="relative min-h-screen bg-[#050508] text-white">
-        <CustomCursor />
-        <PortalView onSelectRealm={(realm) => setRealm(realm)} />
       </div>
     );
   }
@@ -110,7 +91,6 @@ export const App: React.FC = () => {
         currentRealm={route.currentRealm}
         onSelectRealm={(r) => setRealm(r)}
         onOpenPortal={() => {
-          setHasEnteredIntro(true); // Don't re-lock with intro on manual portal return
           setRealm(null);
         }}
         onScrollTo={handleScrollTo}
