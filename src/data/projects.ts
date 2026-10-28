@@ -58,7 +58,7 @@ const RAW_PROJECTS: Project[] = [
     title: 'Fragile',
     realm: 'gamedev',
     type: 'case',
-    span: 'wide', // 16:9 banner
+    span: 'square', // 1:1 single square in grid
     subcategories: ['Game Dev', '3D Art', 'Art Vision', 'Godot'],
     software: ['godot', 'blender', 'substancep', 'photoshop'],
     role: {
