@@ -22,6 +22,7 @@ export const CRITICAL_PORTAL_ARTWORKS = [
 // Secondary portal artworks preloaded in background queue
 export const SECONDARY_PORTAL_ARTWORKS = [
   getAssetUrl('/1_speedsculpt_mushroom.png'),
+  getAssetUrl('/1_gurges_P.png'),
   getAssetUrl('/1_nitted_P.png'),
   getAssetUrl('/1_gamepromo_cover.png'),
 ];

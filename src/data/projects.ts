@@ -135,6 +135,54 @@ const RAW_PROJECTS: Project[] = [
     }
   },
   {
+    id: 'gurges',
+    title: {
+      ru: 'Гургес — Unity Environment & Shaders',
+      en: 'Gurges — Unity Environment & Shaders'
+    },
+    realm: 'gamedev',
+    type: 'case',
+    span: 'horizontal',
+    subcategories: ['Game Dev', '3D Environment', 'Unity', 'Shaders', 'Concept Art'],
+    software: ['unity', 'blender', 'photoshop', 'clipstd'],
+    role: {
+      ru: '3D Environment Artist & Tech Art',
+      en: '3D Environment Artist & Tech Art'
+    },
+    year: '2023',
+    cover: '/1_gurges_P.png',
+    fullImage: '/1_gurges1_F.png',
+    additionalImages: [
+      '/1_gurges2_F.png',
+      '/1_gurges3_F.png',
+      '/1_gurges4_F.png',
+      '/1_gurges5_F.png'
+    ],
+    shortDescription: {
+      ru: 'Первый опыт создания комплексного игрового энвайронмента на движке Unity (2023): концепты персонажей и окружения, сборка сцены, освещение и кастомные шейдеры.',
+      en: 'First comprehensive game environment project built in Unity (2023 archive): character & environment concept art, engine scene assembly, mood lighting, and custom shaders.'
+    },
+    article: {
+      overview: {
+        ru: '«Гургес» — мой первый масштабный опыт разработки цельного игрового энвайронмента на движке Unity (работа 2023 года). В проекте был пройден полный пайплайн: от первичных концептов персонажей и окружения до финальной сборки сцены в движке, настройки атмосферного освещения и написания кастомных шейдеров.',
+        en: '"Gurges" is my first comprehensive game environment project developed in Unity (2023 archive). The project spans the complete pipeline: from initial character and environment concept art to final engine scene assembly, atmospheric lighting, and custom shader development.'
+      },
+      specs: [
+        { label: { ru: 'Проект', en: 'Project' }, value: 'Гургес (Gurges)' },
+        { label: { ru: 'Движок', en: 'Engine' }, value: 'Unity 3D' },
+        { label: { ru: 'Год', en: 'Year' }, value: '2023' },
+        {
+          label: { ru: 'Роль', en: 'Role' },
+          value: {
+            ru: 'Энвайронмент-художник, концепт-арт, тех-арт, шейдеры',
+            en: 'Environment Artist, Concept Art, Tech Art, Shaders'
+          }
+        },
+        { label: { ru: 'Инструменты', en: 'Tools' }, value: 'Unity 3D, Blender, Photoshop, Clip Studio Paint' }
+      ]
+    }
+  },
+  {
     id: 'speedsculpt-toad',
     title: {
       ru: 'Toad — Спидскульпт',

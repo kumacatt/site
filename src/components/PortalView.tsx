@@ -21,6 +21,7 @@ const GAMEDEV_PORTAL_ARTWORKS = [
   '/1_fragile_screen (2).jpg',
   '/1_fragile_screen (3).jpg',
   '/1_Sinclair_web.jpg',
+  '/1_gurges_P.png',
   '/1_speedsculpt_jab_P.png',
   '/1_speedsculpt_mushroom.png',
   '/1_fumel_web.jpg',
