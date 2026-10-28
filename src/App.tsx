@@ -5,7 +5,7 @@ import { PortalView } from './components/PortalView';
 import { RealmHeader } from './components/RealmHeader';
 import { AmbientBackground } from './components/AmbientBackground';
 import { CustomCursor } from './components/CustomCursor';
-import { PROJECTS } from './data/projects';
+import { PROJECTS, RealmType } from './data/projects';
 import { startBackgroundPreload, SECONDARY_PORTAL_ARTWORKS } from './utils/preloader';
 
 // Code-split heavy views and secondary components for ultra-fast initial bundle load
@@ -46,6 +46,22 @@ export const App: React.FC = () => {
     const hash = window.location.hash.replace(/^#\/?/, '').trim();
     return hash === 'gamedev' || hash === 'design' || hash === 'portal' || hash.startsWith('project/');
   });
+
+  // Smooth veil hand-off from Portal VFX shockwave
+  const [realmEntryVeil, setRealmEntryVeil] = useState<{ realm: RealmType; fading: boolean } | null>(null);
+
+  const handleSelectRealmFromPortal = (targetRealm: RealmType) => {
+    setRealmEntryVeil({ realm: targetRealm, fading: false });
+    setRealm(targetRealm);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        setRealmEntryVeil(prev => prev ? { ...prev, fading: true } : null);
+      }, 40);
+    });
+    setTimeout(() => {
+      setRealmEntryVeil(null);
+    }, 750);
+  };
 
   const activeProject = PROJECTS.find(p => p.id === route.activeProjectId) || null;
 
@@ -91,7 +107,7 @@ export const App: React.FC = () => {
       <div className="relative min-h-screen bg-[#050508] text-white">
         <CustomCursor />
         <PortalView
-          onSelectRealm={(realm) => setRealm(realm)}
+          onSelectRealm={handleSelectRealmFromPortal}
           onBackToIntro={() => setHasEnteredIntro(false)}
         />
       </div>
@@ -106,6 +122,25 @@ export const App: React.FC = () => {
 
       {/* Atmospheric Ambient Video & Glows (Paused when Modal is Open) */}
       <AmbientBackground currentRealm={route.currentRealm} isPaused={Boolean(activeProject)} />
+
+      {/* Smooth Realm Entry Veil Hand-off from Portal VFX */}
+      {realmEntryVeil && (
+        <div
+          className={`fixed inset-0 z-50 pointer-events-none transition-opacity duration-700 ease-out ${
+            realmEntryVeil.fading ? 'opacity-0' : 'opacity-100'
+          }`}
+          aria-hidden="true"
+        >
+          <div className="absolute inset-0 bg-[#050507]" />
+          <div
+            className={`absolute inset-0 ${
+              realmEntryVeil.realm === 'gamedev'
+                ? 'bg-gradient-to-t from-amber-950/40 via-amber-900/15 to-transparent'
+                : 'bg-gradient-to-t from-purple-950/40 via-purple-900/15 to-transparent'
+            }`}
+          />
+        </div>
+      )}
 
       {/* Top Floating Liquid Glass Header */}
       <RealmHeader
