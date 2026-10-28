@@ -342,6 +342,7 @@ export const GamedevDitherField: React.FC<GamedevDitherFieldProps> = ({ active =
 
     // Expanding Realm Transition Wave (Retro cybernetic energy surge)
     const triggerTransitionShockwave = (normX = 0.5, normY = 0.08) => {
+      scheduleRender();
       const cx = normX * simW;
       const cy = normY * simH;
       let frame = 0;

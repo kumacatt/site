@@ -6,7 +6,6 @@ import { TRANSLATIONS } from '../data/translations';
 import { LanguageSwitch } from './LanguageSwitch';
 import { getAssetUrl } from '../utils/asset';
 import { loadRefractionSettings, RefractionSettings } from '../utils/tunerSettings';
-import { PortalImpulseOverlay } from './PortalImpulseOverlay';
 
 // 4x4 Bayer Matrix for Ordered Dithering
 const BAYER_4X4 = [
@@ -1085,12 +1084,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
   const { lang } = useLanguage();
   const t = TRANSLATIONS.portal;
   const [hovered, setHovered] = useState<RealmType | null>(null);
-  const [transitioning, setTransitioning] = useState<{
-    active: boolean;
-    realm: RealmType;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [isExiting, setIsExiting] = useState(false);
 
   const randomGamedevStart = React.useMemo(
     () => Math.floor(Math.random() * GAMEDEV_PORTAL_ARTWORKS.length),
@@ -1101,16 +1095,16 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
     realm: RealmType,
     e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
   ) => {
-    if (transitioning?.active) return;
+    if (isExiting) return;
 
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
-        navigator.vibrate?.([25, 35, 20]);
+        navigator.vibrate?.([20, 30, 15]);
       } catch {}
     }
 
-    let clickX = window.innerWidth / 2;
-    let clickY = window.innerHeight / 2;
+    let clickX = window.innerWidth * 0.5;
+    let clickY = window.innerHeight * 0.5;
 
     if ('clientX' in e && typeof e.clientX === 'number' && e.clientX > 0) {
       clickX = e.clientX;
@@ -1125,26 +1119,34 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
       clickY = rect.top + rect.height / 2;
     }
 
-    setTransitioning({
-      active: true,
-      realm,
-      x: clickX,
-      y: clickY
-    });
+    // 1. Dispatch the EXACT same realm transition shockwave across the entire screen!
+    window.dispatchEvent(
+      new CustomEvent('kum-realm-transition', {
+        detail: {
+          toRealm: realm,
+          clientX: clickX,
+          clientY: clickY,
+        },
+      })
+    );
 
-    setTimeout(() => {
-      onSelectRealm(realm);
-    }, 720);
+    // 2. Smoothly fade out PortalView
+    setIsExiting(true);
+
+    // 3. Select realm immediately so the background cross-fades and content glides in
+    onSelectRealm(realm);
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#050507] flex flex-col md:flex-row select-none">
+    <div
+      className={`fixed inset-0 z-20 overflow-hidden flex flex-col md:flex-row select-none transition-opacity duration-300 ease-out ${
+        isExiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+    >
       {/* Top Brand Name — Click returns to IntroScreen */}
       <div
         onClick={onBackToIntro}
-        className={`absolute top-6 left-6 md:top-8 md:left-8 z-30 space-y-1 cursor-pointer group pointer-events-auto transition-opacity duration-300 ${
-          transitioning?.active ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
+        className="absolute top-6 left-6 md:top-8 md:left-8 z-30 space-y-1 cursor-pointer group pointer-events-auto"
         title={lang === 'ru' ? 'Вернуться на приветственный экран' : 'Back to welcome screen'}
       >
         <h1
@@ -1166,11 +1168,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
       </div>
 
       {/* Top right language switch and realm tags */}
-      <div
-        className={`absolute top-6 right-6 md:top-8 md:right-8 z-30 flex items-center gap-4 transition-opacity duration-300 ${
-          transitioning?.active ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
-      >
+      <div className="absolute top-6 right-6 md:top-8 md:right-8 z-30 flex items-center gap-4">
         <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono text-white/35 pointer-events-none">
           <span className={hovered === 'gamedev' ? 'text-amber-300 font-bold' : ''}>#gamedev</span>
           <span>•</span>
@@ -1183,16 +1181,12 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
       {/* LEFT HALF: Gamedev / CG (With Interactive Bayer Dithering Matrix Field)   */}
       {/* ========================================================================= */}
       <div
-        onMouseEnter={() => !transitioning && setHovered('gamedev')}
-        onMouseLeave={() => !transitioning && setHovered(null)}
+        onMouseEnter={() => !isExiting && setHovered('gamedev')}
+        onMouseLeave={() => !isExiting && setHovered(null)}
         onClick={(e) => handleSelectRealm('gamedev', e)}
         onTouchEnd={(e) => handleSelectRealm('gamedev', e)}
         className={`group relative h-1/2 md:h-full cursor-pointer overflow-hidden flex flex-col justify-end p-8 md:p-14 border-b md:border-b-0 md:border-r border-white/10 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          transitioning?.active
-            ? transitioning.realm === 'gamedev'
-              ? 'md:flex-[3] z-20 scale-[1.04] brightness-125 pointer-events-none'
-              : 'opacity-0 scale-95 blur-md pointer-events-none'
-            : hovered === 'gamedev'
+          hovered === 'gamedev'
             ? 'md:flex-[1.5]'
             : hovered === 'design'
             ? 'md:flex-[0.85] opacity-40'
@@ -1222,11 +1216,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
         )}
 
         {/* Content Block */}
-        <div className={`relative z-20 space-y-2 transition-all duration-500 ${
-          transitioning?.active && transitioning.realm === 'gamedev'
-            ? 'translate-y-[-10px] drop-shadow-[0_0_30px_rgba(251,191,36,0.8)]'
-            : ''
-        }`}>
+        <div className="relative z-20 space-y-2">
           <span className="text-[11px] font-mono tracking-widest text-amber-300 uppercase block font-medium">
             {t.realm1[lang]}
           </span>
@@ -1235,11 +1225,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
             <h2 className="text-3xl sm:text-5xl md:text-6xl font-normal text-white tracking-wide uppercase transition-colors group-hover:text-amber-200 font-heading">
               {t.realm1Title[lang]}
             </h2>
-            <div className={`w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 group-hover:text-white group-hover:border-amber-400 group-hover:bg-amber-500/20 transition-all flex-shrink-0 ml-4 ${
-              transitioning?.active && transitioning.realm === 'gamedev'
-                ? 'scale-125 bg-amber-500 text-black border-amber-300 shadow-[0_0_20px_rgba(245,158,11,1)]'
-                : ''
-            }`}>
+            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 group-hover:text-white group-hover:border-amber-400 group-hover:bg-amber-500/20 transition-all flex-shrink-0 ml-4">
               <ArrowUpRight size={18} />
             </div>
           </div>
@@ -1254,16 +1240,12 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
       {/* RIGHT HALF: Дизайн / Айдентика (With Interactive Liquid Glass Refraction) */}
       {/* ========================================================================= */}
       <div
-        onMouseEnter={() => !transitioning && setHovered('design')}
-        onMouseLeave={() => !transitioning && setHovered(null)}
+        onMouseEnter={() => !isExiting && setHovered('design')}
+        onMouseLeave={() => !isExiting && setHovered(null)}
         onClick={(e) => handleSelectRealm('design', e)}
         onTouchEnd={(e) => handleSelectRealm('design', e)}
         className={`group relative h-1/2 md:h-full cursor-pointer overflow-hidden flex flex-col justify-end p-8 md:p-14 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          transitioning?.active
-            ? transitioning.realm === 'design'
-              ? 'md:flex-[3] z-20 scale-[1.04] brightness-125 pointer-events-none'
-              : 'opacity-0 scale-95 blur-md pointer-events-none'
-            : hovered === 'design'
+          hovered === 'design'
             ? 'md:flex-[1.5]'
             : hovered === 'gamedev'
             ? 'md:flex-[0.85] opacity-40'
@@ -1288,11 +1270,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
         )}
 
         {/* Content Block */}
-        <div className={`relative z-20 space-y-2 transition-all duration-500 ${
-          transitioning?.active && transitioning.realm === 'design'
-            ? 'translate-y-[-10px] drop-shadow-[0_0_30px_rgba(217,70,239,0.8)]'
-            : ''
-        }`}>
+        <div className="relative z-20 space-y-2">
           <span className="text-[11px] font-mono tracking-widest text-purple-300 uppercase block font-medium">
             {t.realm2[lang]}
           </span>
@@ -1301,11 +1279,7 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
             <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight uppercase transition-colors group-hover:text-purple-200 font-sans">
               {t.realm2Title[lang]}
             </h2>
-            <div className={`w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 group-hover:text-white group-hover:border-purple-400 group-hover:bg-purple-500/20 transition-all flex-shrink-0 ml-4 ${
-              transitioning?.active && transitioning.realm === 'design'
-                ? 'scale-125 bg-purple-500 text-white border-purple-300 shadow-[0_0_20px_rgba(168,85,247,1)]'
-                : ''
-            }`}>
+            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/60 group-hover:text-white group-hover:border-purple-400 group-hover:bg-purple-500/20 transition-all flex-shrink-0 ml-4">
               <ArrowUpRight size={18} />
             </div>
           </div>
@@ -1315,15 +1289,6 @@ export const PortalView: React.FC<PortalViewProps> = ({ onSelectRealm, onBackToI
           </p>
         </div>
       </div>
-
-      {/* Cinematic Portal Selection VFX Impulse & Shockwave Overlay */}
-      {transitioning && (
-        <PortalImpulseOverlay
-          active={transitioning.active}
-          realm={transitioning.realm}
-          origin={{ x: transitioning.x, y: transitioning.y }}
-        />
-      )}
     </div>
   );
 };
