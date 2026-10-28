@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { RealmType } from '../data/projects';
-import { Send, Copy, Check, Mail } from 'lucide-react';
+import { Send, Copy, Check, Mail, FileDown } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { TRANSLATIONS } from '../data/translations';
 import { getAssetUrl } from '../utils/asset';
@@ -135,6 +135,29 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ realm = 'gamedev
               <span className="text-xs font-mono text-emerald-400">{t.copiedBuffer[lang]}</span>
             )}
           </div>
+        </div>
+
+        {/* Direct Download CV Button */}
+        <div className="w-full max-w-xl">
+          <a
+            href={getAssetUrl('/Igor_Churakov_CV.pdf')}
+            download="Igor_Churakov_CV.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full p-4 rounded-2xl bg-white/[0.04] hover:bg-amber-500/10 border border-white/10 hover:border-amber-400/50 transition-all flex items-center justify-center gap-3.5 group shadow-lg"
+          >
+            <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform flex-shrink-0">
+              <FileDown size={18} />
+            </div>
+            <div className="text-left">
+              <span className="text-xs sm:text-sm font-bold text-white font-mono group-hover:text-amber-300 transition-colors block">
+                {t.downloadCv[lang]}
+              </span>
+              <span className="text-[10px] font-mono text-white/40 block">
+                {lang === 'ru' ? 'Актуальное резюме и опыт (PDF, ~200 КБ)' : 'Resume & technical experience (PDF, ~200 KB)'}
+              </span>
+            </div>
+          </a>
         </div>
 
         {/* 2. SOCIALS (Icons only) */}

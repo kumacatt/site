@@ -55,7 +55,8 @@ export const TRANSLATIONS = {
     contacts: { ru: 'Контакты', en: 'Contacts' },
     portal: { ru: 'Приветственный экран', en: 'Welcome Screen' },
     copied: { ru: 'Скопировано!', en: 'Copied!' },
-    copyTabLink: { ru: 'Скопировать ссылку на сферу', en: 'Copy link to realm' }
+    copyTabLink: { ru: 'Скопировать ссылку на сферу', en: 'Copy link to realm' },
+    available: { ru: 'Открыт к предложениям', en: 'Open to offers' }
   },
 
   gamedevView: {
@@ -111,7 +112,9 @@ export const TRANSLATIONS = {
     clickToZoom: { ru: 'Нажмите для полноэкранного зума', en: 'Click for full-screen zoom' },
     close: { ru: 'Закрыть', en: 'Close' },
     copyLink: { ru: 'Скопировать ссылку', en: 'Copy Link' },
-    copied: { ru: 'Скопировано!', en: 'Copied!' }
+    copied: { ru: 'Скопировано!', en: 'Copied!' },
+    prevProject: { ru: 'Предыдущий проект', en: 'Previous project' },
+    nextProject: { ru: 'Следующий проект', en: 'Next project' }
   },
 
   about: {
@@ -127,7 +130,9 @@ export const TRANSLATIONS = {
     p3: {
       ru: 'В дизайне собираю айдентику, постеры и логотипы. Ценю чистый визуал, внимание к деталям и цельную атмосферу.',
       en: 'In design, I craft visual identities, posters, and logotypes. I value clean aesthetics, sharp attention to detail, and a cohesive atmosphere.'
-    }
+    },
+    downloadCv: { ru: 'Скачать резюме / CV (PDF)', en: 'Download CV / Resume (PDF)' },
+    availableStatus: { ru: 'Открыт к предложениям', en: 'Open to opportunities' }
   },
 
   contact: {
@@ -141,6 +146,7 @@ export const TRANSLATIONS = {
     emailLabel: { ru: 'Почта (Email)', en: 'Email' },
     copiedBuffer: { ru: 'Скопировано в буфер!', en: 'Copied to clipboard!' },
     socials: { ru: 'Соцсети', en: 'Socials' },
+    downloadCv: { ru: 'Скачать резюме / CV (PDF)', en: 'Download CV / Resume (PDF)' },
     allRightsReserved: { ru: 'Все права защищены', en: 'All rights reserved' }
   }
 } as const;

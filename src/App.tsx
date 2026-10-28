@@ -26,6 +26,18 @@ export const App: React.FC = () => {
   const { route, openProject, closeProject, setRealm } = useHashRoute();
   const [isTunerOpen, setIsTunerOpen] = useState(false);
 
+  // Debug hotkey for author: Ctrl+Shift+D opens DitherTuner
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        setIsTunerOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Progressive background preloader: Cache project grid thumbnails in idle slots
   useEffect(() => {
     const covers = PROJECTS.map((p) => p.cover).filter(Boolean);
@@ -145,6 +157,7 @@ export const App: React.FC = () => {
           <ProjectModal
             project={activeProject}
             onClose={closeProject}
+            onNavigateProject={openProject}
           />
         </React.Suspense>
       )}

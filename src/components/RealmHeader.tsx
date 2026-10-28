@@ -105,6 +105,15 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
 
         {/* Right Controls: Full Bar on Desktop (`md:flex`) */}
         <div className="hidden md:flex items-center gap-2.5">
+          {/* Availability Status Badge */}
+          <div className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-mono font-medium select-none shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>{t.available[lang]}</span>
+          </div>
+
           {/* Language Switcher */}
           <LanguageSwitch />
 
@@ -120,15 +129,6 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
             className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-xl border border-white/25 text-xs sm:text-sm font-mono text-white transition-all font-semibold shadow-md active:scale-95"
           >
             {t.contacts[lang]}
-          </button>
-
-          {/* Dither & Visual FX Settings Gear */}
-          <button
-            onClick={onToggleSettings}
-            title={lang === 'ru' ? 'Настройки дизера' : 'Dither Settings'}
-            className="p-2.5 rounded-xl bg-black/55 hover:bg-white/15 backdrop-blur-xl border border-white/15 hover:border-amber-500/50 text-amber-400 hover:text-amber-300 transition-all flex items-center justify-center group shadow-md active:scale-95"
-          >
-            <Settings size={18} className="group-hover:rotate-90 transition-transform duration-300" />
           </button>
         </div>
 
@@ -203,20 +203,14 @@ export const RealmHeader: React.FC<RealmHeaderProps> = ({
             <span className="text-white/40">→</span>
           </button>
 
-          {/* Dither Tuner in Mobile Menu */}
-          <button
-            onClick={() => {
-              if (onToggleSettings) onToggleSettings();
-              setMobileMenuOpen(false);
-            }}
-            className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-sm font-mono text-amber-300 transition-colors text-left"
-          >
-            <span className="flex items-center gap-2.5">
-              <Settings size={16} className="text-amber-400" />
-              <span>{lang === 'ru' ? 'Настройки дизера' : 'Dither Settings'}</span>
+          {/* Availability Status in Mobile Drawer */}
+          <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-mono text-emerald-300">
+            <span className="relative flex h-2 w-2 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="text-xs font-mono text-amber-400/70 font-bold">⚙️</span>
-          </button>
+            <span>{t.available[lang]}</span>
+          </div>
 
           {/* Portal Switcher */}
           <button

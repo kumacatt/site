@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Project, getLocalized } from '../data/projects';
+import { Project, getLocalized, PROJECTS } from '../data/projects';
 import { SOFTWARE_MAP } from '../data/software';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
 import { FullscreenLightbox } from './FullscreenLightbox';
@@ -12,28 +12,44 @@ import {
   Check,
   Maximize2,
   Sparkles,
-  Film
+  Film,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface ProjectModalProps {
   project: Project | null;
   onClose: () => void;
+  onNavigateProject?: (projectId: string) => void;
 }
 
-export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) => {
+export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onNavigateProject }) => {
   const { lang } = useLanguage();
   const t = TRANSLATIONS.projectModal;
   const [copied, setCopied] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [activeMedia, setActiveMedia] = useState<string | null>(null);
 
+  // Compute realm projects for Next / Prev navigation
+  const realmProjects = project ? PROJECTS.filter((p) => p.realm === project.realm) : [];
+  const currentIndex = project ? realmProjects.findIndex((p) => p.id === project.id) : -1;
+  const prevProject = currentIndex > 0 ? realmProjects[currentIndex - 1] : null;
+  const nextProject = currentIndex >= 0 && currentIndex < realmProjects.length - 1 ? realmProjects[currentIndex + 1] : null;
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isLightboxOpen) onClose();
+      if (isLightboxOpen) return;
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft' && prevProject && onNavigateProject) {
+        onNavigateProject(prevProject.id);
+      } else if (e.key === 'ArrowRight' && nextProject && onNavigateProject) {
+        onNavigateProject(nextProject.id);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, isLightboxOpen]);
+  }, [onClose, isLightboxOpen, prevProject, nextProject, onNavigateProject]);
 
   // Lock body scroll while modal is open
   useEffect(() => {
@@ -78,6 +94,30 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
         onClick={onClose}
         className="fixed inset-0 bg-black/85 backdrop-blur-2xl transition-opacity duration-300"
       />
+
+      {/* Floating Prev Project Arrow (Desktop / Tablet) */}
+      {prevProject && onNavigateProject && (
+        <button
+          onClick={() => onNavigateProject(prevProject.id)}
+          title={`${t.prevProject[lang]}: ${getLocalized(prevProject.title, lang)}`}
+          className="hidden md:flex fixed left-3 lg:left-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-black/75 hover:bg-black/95 backdrop-blur-xl border border-white/20 hover:border-amber-400 text-white/80 hover:text-amber-300 items-center justify-center transition-all shadow-2xl hover:scale-110 active:scale-95 group cursor-pointer"
+          aria-label={t.prevProject[lang]}
+        >
+          <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />
+        </button>
+      )}
+
+      {/* Floating Next Project Arrow (Desktop / Tablet) */}
+      {nextProject && onNavigateProject && (
+        <button
+          onClick={() => onNavigateProject(nextProject.id)}
+          title={`${t.nextProject[lang]}: ${getLocalized(nextProject.title, lang)}`}
+          className="hidden md:flex fixed right-3 lg:right-6 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-black/75 hover:bg-black/95 backdrop-blur-xl border border-white/20 hover:border-amber-400 text-white/80 hover:text-amber-300 items-center justify-center transition-all shadow-2xl hover:scale-110 active:scale-95 group cursor-pointer"
+          aria-label={t.nextProject[lang]}
+        >
+          <ChevronRight size={24} className="group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      )}
 
       {/* Modal Dialog Window */}
       <div className="relative w-full max-w-6xl my-auto rounded-3xl border border-white/15 bg-neutral-950/95 backdrop-blur-2xl shadow-[0_0_80px_rgba(0,0,0,0.95)] overflow-hidden z-10 flex flex-col max-h-[94vh]">
@@ -344,6 +384,47 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
                       afterLabel={getLocalized(article.beforeAfter.afterLabel, lang)}
                     />
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Prev / Next Project Switcher Footer */}
+            {(prevProject || nextProject) && onNavigateProject && (
+              <div className="pt-8 border-t border-white/10 flex items-center justify-between gap-4">
+                {prevProject ? (
+                  <button
+                    onClick={() => onNavigateProject(prevProject.id)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.09] border border-white/15 hover:border-amber-400/50 text-white transition-all group text-left max-w-[48%]"
+                  >
+                    <ChevronLeft size={20} className="text-amber-400 group-hover:-translate-x-1 transition-transform flex-shrink-0" />
+                    <div className="overflow-hidden">
+                      <span className="text-[10px] font-mono uppercase text-white/40 block tracking-wider">
+                        {t.prevProject[lang]}
+                      </span>
+                      <span className="text-xs sm:text-sm font-mono font-medium truncate block">
+                        {getLocalized(prevProject.title, lang)}
+                      </span>
+                    </div>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                {nextProject && (
+                  <button
+                    onClick={() => onNavigateProject(nextProject.id)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.09] border border-white/15 hover:border-amber-400/50 text-white transition-all group text-right max-w-[48%] ml-auto"
+                  >
+                    <div className="overflow-hidden">
+                      <span className="text-[10px] font-mono uppercase text-white/40 block tracking-wider">
+                        {t.nextProject[lang]}
+                      </span>
+                      <span className="text-xs sm:text-sm font-mono font-medium truncate block">
+                        {getLocalized(nextProject.title, lang)}
+                      </span>
+                    </div>
+                    <ChevronRight size={20} className="text-amber-400 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                  </button>
                 )}
               </div>
             )}
